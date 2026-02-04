@@ -1,0 +1,31 @@
+# MadGraph5_aMC@NLO Docker image for MadGraphMLProducer
+# Based on the official scailfin image with additional UFO models
+
+FROM scailfin/madgraph5-amc-nlo:mg5_amc3.5.1
+
+LABEL maintainer="MadGraphMLProducer"
+LABEL description="MadGraph5 with RPVMSSM UFO model for event generation"
+
+# Install additional dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /workdir
+
+# Create directory structure
+RUN mkdir -p /workdir/cards \
+             /workdir/output \
+             /workdir/models
+
+# Copy UFO models (if available)
+# The RPVMSSM_UFO model should be downloaded separately via setup_models.sh
+# COPY models/RPVMSSM_UFO /usr/local/MG5_aMC/models/RPVMSSM_UFO
+
+# Environment variables
+ENV MG5_PATH=/usr/local/MG5_aMC
+ENV PATH="${MG5_PATH}:${PATH}"
+
+# Default command shows help
+CMD ["mg5_aMC", "--help"]

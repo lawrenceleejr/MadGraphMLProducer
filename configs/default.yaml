@@ -1,0 +1,68 @@
+# MadGraphMLProducer Default Configuration Template
+# Copy and modify this file for your physics process
+
+name: "my_process"
+description: "Description of your physics process"
+
+# Collider settings (LHC Run 3 defaults)
+collider:
+  beam1_pdg: 2212       # proton
+  beam2_pdg: 2212       # proton
+  energy_beam1: 6800.0  # GeV
+  energy_beam2: 6800.0  # GeV
+
+# Physics process definition
+process:
+  model: "sm"                   # UFO model (sm, RPVMSSM_UFO, etc.)
+  process_string: "p p > t t~"  # MadGraph process string
+  decay_chain: null             # Optional decay chain
+  extra_partons: 0              # Additional partons for matching (0-2)
+  excluded_particles: []        # Particles to exclude from diagrams
+  multiparticle_definitions: {} # Additional multiparticle definitions
+
+# Particle masses (override model defaults)
+particles: []
+  # Example:
+  # - pdg_id: 6
+  #   name: "top"
+  #   mass: 172.5
+  #   width: null
+
+# Jet matching configuration
+matching:
+  enabled: false
+  scheme: "mlm"
+  xqcut: 30.0
+  qcut: 40.0
+  max_jet_flavor: 5
+  kt_scheme: 1
+
+# Event generation settings
+generation:
+  num_events: 10000
+  random_seed: 0        # 0 = automatic
+  ptj_min: 20.0
+  etaj_max: 5.0
+  drjj_min: 0.0
+  ptl_min: 0.0
+  etal_max: -1.0        # -1 = no cut
+  use_syst: true
+
+# Jet clustering for HDF5 output
+jets:
+  algorithm: "antikt"   # antikt, kt, or cambridge
+  radius: 0.4
+  pt_min: 25.0
+  eta_max: 2.5
+  ghost_area: 0.01
+
+# Output configuration
+output:
+  output_dir: "./output"
+  filename_prefix: "events"
+  save_lhe: true
+  save_hepmc: true
+  save_hdf5: true
+  compression: "gzip"   # gzip, lzf, or null
+  max_jets_per_event: 20
+  max_particles_per_jet: 100

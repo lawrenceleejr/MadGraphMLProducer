@@ -1,0 +1,68 @@
+# Docker Compose configuration for MadGraphMLProducer
+# Orchestrates MadGraph, Pythia8, and post-processing containers
+
+version: '3.8'
+
+services:
+  # MadGraph5 event generation
+  madgraph:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.madgraph
+    volumes:
+      - ../cards/generated:/workdir/cards:ro
+      - ../output:/workdir/output
+      - ../models:/workdir/models:ro
+    environment:
+      - MG5_NUM_CORES=${MG5_NUM_CORES:-4}
+    networks:
+      - madgraph-net
+
+  # Pythia8 parton shower
+  pythia:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.pythia
+    volumes:
+      - ../output:/workdir/output
+      - ../cards/generated:/workdir/cards:ro
+    depends_on:
+      - madgraph
+    networks:
+      - madgraph-net
+
+  # Post-processing (jet clustering, HDF5)
+  processor:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.processor
+    volumes:
+      - ../output:/workdir/output
+      - ../configs:/workdir/configs:ro
+      - ../cards:/workdir/cards
+    depends_on:
+      - pythia
+    networks:
+      - madgraph-net
+
+  # Full pipeline runner
+  pipeline:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.processor
+    volumes:
+      - ../output:/workdir/output
+      - ../configs:/workdir/configs:ro
+      - ../cards:/workdir/cards
+      - ../models:/workdir/models:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - MG5_NUM_CORES=${MG5_NUM_CORES:-4}
+      - DOCKER_MODE=true
+    networks:
+      - madgraph-net
+    entrypoint: ["madgraph-ml", "generate"]
+
+networks:
+  madgraph-net:
+    driver: bridge

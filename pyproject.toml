@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "madgraph-ml-producer"
+version = "0.1.0"
+description = "Generate particle physics events with MadGraph5 and Pythia8 for ML training"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "MadGraphMLProducer Contributors"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+    "numpy>=1.21.0",
+    "h5py>=3.7.0",
+    "pyhepmc>=2.0.0",
+    "pylhe>=0.6.0",
+    "pyjet>=1.9.0",
+    "awkward>=2.0.0",
+    "vector>=1.0.0",
+    "click>=8.0.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.0.0",
+    "jinja2>=3.0.0",
+    "tqdm>=4.60.0",
+]
+
+[project.optional-dependencies]
+torch = [
+    "torch>=1.12.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+all = [
+    "madgraph-ml-producer[torch,dev]",
+]
+
+[project.scripts]
+madgraph-ml = "madgraph_ml_producer.cli:cli"
+
+[project.urls]
+Homepage = "https://github.com/lawrenceleejr/MadGraphMLProducer"
+Repository = "https://github.com/lawrenceleejr/MadGraphMLProducer"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311"]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"

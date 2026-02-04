@@ -1,0 +1,47 @@
+# Post-processing Docker image for MadGraphMLProducer
+# Handles HepMC parsing, jet clustering, and HDF5 output
+
+FROM python:3.11-slim
+
+LABEL maintainer="MadGraphMLProducer"
+LABEL description="Event post-processing with jet clustering and HDF5 output"
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages
+RUN pip install --no-cache-dir \
+    numpy>=1.21.0 \
+    h5py>=3.7.0 \
+    pyhepmc>=2.0.0 \
+    pylhe>=0.6.0 \
+    pyjet>=1.9.0 \
+    awkward>=2.0.0 \
+    vector>=1.0.0 \
+    click>=8.0.0 \
+    pyyaml>=6.0 \
+    pydantic>=2.0.0 \
+    jinja2>=3.0.0 \
+    tqdm>=4.60.0
+
+# Create working directories
+WORKDIR /app
+RUN mkdir -p /workdir/output \
+             /workdir/configs
+
+# Copy the source code
+COPY src/ /app/src/
+COPY pyproject.toml /app/
+
+# Install the package
+RUN pip install -e .
+
+# Set Python path
+ENV PYTHONPATH=/app/src:${PYTHONPATH}
+
+# Default entrypoint
+ENTRYPOINT ["madgraph-ml"]
+CMD ["--help"]

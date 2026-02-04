@@ -1,0 +1,28 @@
+# Pythia8 Docker image for MadGraphMLProducer
+# Based on matthewfeickert/pythia-python with additional packages
+
+FROM matthewfeickert/pythia-python:pythia8.310
+
+LABEL maintainer="MadGraphMLProducer"
+LABEL description="Pythia8 with Python bindings and HepMC support"
+
+# Install additional Python packages
+RUN pip install --no-cache-dir \
+    pyhepmc>=2.0.0 \
+    pylhe>=0.6.0 \
+    numpy>=1.21.0 \
+    tqdm>=4.60.0
+
+# Create working directories
+WORKDIR /workdir
+RUN mkdir -p /workdir/lhe \
+             /workdir/hepmc \
+             /workdir/cards
+
+# Copy the Pythia8 shower runner script
+COPY scripts/run_pythia_shower.py /usr/local/bin/run_pythia_shower.py
+RUN chmod +x /usr/local/bin/run_pythia_shower.py
+
+# Default entrypoint
+ENTRYPOINT ["python", "/usr/local/bin/run_pythia_shower.py"]
+CMD ["--help"]

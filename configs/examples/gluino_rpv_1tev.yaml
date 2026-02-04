@@ -1,0 +1,78 @@
+# MadGraphMLProducer Configuration
+# RPV Gluino Pair Production at LHC 13.6 TeV
+# Gluino mass: 1 TeV, decay via RPV UDD coupling to 3 light jets
+
+name: "gluino_rpv_1tev"
+description: "RPV gluino pair production (pp -> g̃g̃), each gluino decays to 3 jets via RPV vertex, m_gluino = 1 TeV"
+
+# LHC Run 3 configuration
+collider:
+  beam1_pdg: 2212       # proton
+  beam2_pdg: 2212       # proton
+  energy_beam1: 6800.0  # GeV (sqrt(s) = 13.6 TeV)
+  energy_beam2: 6800.0  # GeV
+
+# Physics process definition
+process:
+  model: "RPVMSSM_UFO"
+  process_string: "p p > go go"
+  decay_chain: "(go > j j j)"
+  extra_partons: 2  # Up to 2 additional jets for MLM matching
+  # Exclude squarks from diagrams (they're decoupled at high mass)
+  excluded_particles:
+    - "ul"    # up squark L
+    - "ur"    # up squark R
+    - "dl"    # down squark L
+    - "dr"    # down squark R
+    - "cl"    # charm squark L
+    - "cr"    # charm squark R
+    - "sl"    # strange squark L
+    - "sr"    # strange squark R
+    - "b1"    # sbottom 1
+    - "b2"    # sbottom 2
+    - "t1"    # stop 1
+    - "t2"    # stop 2
+
+# Particle masses
+particles:
+  - pdg_id: 1000021  # gluino
+    name: "gluino"
+    mass: 1000.0     # 1 TeV
+    width: null      # auto-calculate from RPV couplings
+
+# MLM jet matching configuration
+matching:
+  enabled: true
+  scheme: "mlm"
+  xqcut: 30.0       # ME-level kt cut in GeV
+  qcut: 40.0        # Pythia matching scale in GeV (should be > xqcut)
+  max_jet_flavor: 5 # Include b quarks in matching
+  kt_scheme: 1      # Durham kt scheme
+
+# Event generation settings
+generation:
+  num_events: 100000
+  random_seed: 12345
+  ptj_min: 20.0     # Not used with MLM matching
+  etaj_max: 5.0
+  drjj_min: 0.0
+  use_syst: true
+
+# Jet clustering for output
+jets:
+  algorithm: "antikt"
+  radius: 0.4
+  pt_min: 25.0      # Min jet pT for output
+  eta_max: 2.5      # Max |eta| for output
+  ghost_area: 0.01
+
+# Output configuration
+output:
+  output_dir: "./output/gluino_rpv_1tev"
+  filename_prefix: "gluino_rpv"
+  save_lhe: true
+  save_hepmc: true
+  save_hdf5: true
+  compression: "gzip"
+  max_jets_per_event: 20
+  max_particles_per_jet: 100
