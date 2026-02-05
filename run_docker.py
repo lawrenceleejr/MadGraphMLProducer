@@ -98,18 +98,18 @@ def main():
 
     # Step 1: Generate cards
     print("\n[1/3] Generating MadGraph configuration...")
-    cards_dir = generate_cards(config_path, work_dir, args.events, args.seed)
+    cards_dir, config = generate_cards(config_path, work_dir, args.events, args.seed)
 
     # Step 2: Run MadGraph + Pythia8
     print("\n[2/3] Running MadGraph5 + Pythia8...")
-    lhe_file, hepmc_file = run_madgraph_pythia(
-        cards_dir, work_dir, args.cores, args.shower, args.verbose
+    lhe_file = run_madgraph_pythia(
+        cards_dir, work_dir, config, args.cores, args.shower, args.verbose
     )
 
     # Step 3: Convert to HDF5
     print("\n[3/3] Converting to HDF5...")
     output_path = Path(args.output)
-    convert_to_hdf5(hepmc_file or lhe_file, output_path, config_path)
+    convert_to_hdf5(lhe_file, output_path, config)
 
     # Optionally copy LHE file
     if args.keep_lhe and lhe_file and lhe_file.exists():
@@ -123,7 +123,7 @@ def main():
     print("=" * 60)
 
 
-def generate_cards(config_path: Path, work_dir: Path, num_events: int, seed: int) -> Path:
+def generate_cards(config_path: Path, work_dir: Path, num_events: int, seed: int) -> tuple:
     """Generate MadGraph and Pythia8 cards."""
     import yaml
     sys.path.insert(0, "/app/src")
@@ -148,45 +148,44 @@ def generate_cards(config_path: Path, work_dir: Path, num_events: int, seed: int
     output_dir = generator.generate_all_cards()
 
     print(f"  Generated cards in: {output_dir}")
-    return output_dir
+    return output_dir, config
 
 
-def run_madgraph_pythia(cards_dir: Path, work_dir: Path, cores: int,
-                        shower: str, verbose: bool) -> tuple:
+def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
+                        cores: int, shower: str, verbose: bool) -> Path:
     """Run MadGraph5 with optional Pythia8 shower."""
+
+    process_name = config.name
     mg5_output = work_dir / "mg5_run"
     mg5_output.mkdir(exist_ok=True)
 
-    # Read process name from proc_card
+    # Create a complete MadGraph script that does everything
+    mg5_script = work_dir / "mg5_script.txt"
+
+    # Read the proc_card content and modify it to include launch
     proc_card = cards_dir / "proc_card.dat"
-    process_name = "signal"
     with open(proc_card) as f:
-        for line in f:
-            if line.strip().startswith("output"):
-                parts = line.strip().split()
-                if len(parts) >= 2:
-                    process_name = parts[1]
-                break
+        proc_content = f.read()
 
-    # Create MadGraph launch script
-    mg5_script = work_dir / "mg5_run.txt"
+    # Build complete script
+    script_lines = []
 
-    # Build the script content
-    script_lines = [
-        f"import {cards_dir}/proc_card.dat",
-        f"launch {process_name}",
-    ]
+    # Add proc_card content (which has import model, generate, output)
+    script_lines.append(proc_content)
+
+    # Add launch command
+    script_lines.append(f"\nlaunch {process_name}")
 
     if shower == "pythia8":
         script_lines.append("  shower=Pythia8")
     else:
         script_lines.append("  shower=OFF")
 
-    script_lines.extend([
-        "  done",
-        f"  {cards_dir}/param_card.dat",
-        f"  {cards_dir}/run_card.dat",
-    ])
+    script_lines.append("  done")
+
+    # Point to the cards
+    script_lines.append(f"  {cards_dir}/param_card.dat")
+    script_lines.append(f"  {cards_dir}/run_card.dat")
 
     if shower == "pythia8":
         script_lines.append(f"  {cards_dir}/pythia8_card.dat")
@@ -196,12 +195,20 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, cores: int,
     with open(mg5_script, "w") as f:
         f.write("\n".join(script_lines))
 
-    # Set environment for multicore
+    if verbose:
+        print(f"  MadGraph script:\n")
+        with open(mg5_script) as f:
+            for line in f:
+                print(f"    {line.rstrip()}")
+        print()
+
+    # Set environment
     env = os.environ.copy()
     env["OMP_NUM_THREADS"] = str(cores)
 
     # Run MadGraph
     print(f"  Running mg5_aMC with {cores} cores...")
+    print(f"  This may take several minutes...")
     cmd = ["mg5_aMC", str(mg5_script)]
 
     if verbose:
@@ -214,87 +221,76 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, cores: int,
 
     if result.returncode != 0:
         print("MadGraph5 failed!")
-        if not verbose and hasattr(result, 'stderr'):
-            print(result.stderr[-3000:] if result.stderr else "No stderr")
+        if not verbose and result.stderr:
+            print("STDERR (last 3000 chars):")
+            print(result.stderr[-3000:])
+        if not verbose and result.stdout:
+            print("STDOUT (last 3000 chars):")
+            print(result.stdout[-3000:])
         sys.exit(1)
 
-    # Find output files
+    # Find output files - MadGraph creates process_name/Events/run_01/
     lhe_file = None
-    hepmc_file = None
 
-    # Look for LHE file
-    lhe_candidates = list(mg5_output.glob("**/unweighted_events.lhe.gz"))
-    if not lhe_candidates:
-        lhe_candidates = list(mg5_output.glob("**/events.lhe.gz"))
-    if not lhe_candidates:
-        lhe_candidates = list(mg5_output.glob("**/*.lhe.gz"))
-    if not lhe_candidates:
-        lhe_candidates = list(mg5_output.glob("**/*.lhe"))
+    # Look in the mg5_output directory and the process output
+    search_paths = [
+        mg5_output,
+        mg5_output / process_name,
+        work_dir / process_name,
+    ]
 
-    if lhe_candidates:
-        lhe_file = lhe_candidates[0]
-        print(f"  LHE file: {lhe_file}")
+    for search_path in search_paths:
+        if not search_path.exists():
+            continue
 
-    # Look for HepMC file (from Pythia8 shower)
-    hepmc_candidates = list(mg5_output.glob("**/*.hepmc"))
-    if not hepmc_candidates:
-        hepmc_candidates = list(mg5_output.glob("**/*.hepmc.gz"))
+        lhe_candidates = list(search_path.glob("**/unweighted_events.lhe.gz"))
+        if not lhe_candidates:
+            lhe_candidates = list(search_path.glob("**/events.lhe.gz"))
+        if not lhe_candidates:
+            lhe_candidates = list(search_path.glob("**/*.lhe.gz"))
+        if not lhe_candidates:
+            lhe_candidates = list(search_path.glob("**/*.lhe"))
 
-    if hepmc_candidates:
-        hepmc_file = hepmc_candidates[0]
-        print(f"  HepMC file: {hepmc_file}")
+        if lhe_candidates:
+            lhe_file = lhe_candidates[0]
+            break
 
-    if not lhe_file and not hepmc_file:
-        print("Error: No output files found!")
-        print(f"Contents of {mg5_output}:")
-        for f in mg5_output.rglob("*"):
-            if f.is_file():
-                print(f"  {f}")
+    if not lhe_file:
+        print("Error: No LHE file generated!")
+        print(f"Searching in: {search_paths}")
+
+        # List all files for debugging
+        for search_path in search_paths:
+            if search_path.exists():
+                print(f"\nContents of {search_path}:")
+                for f in search_path.rglob("*"):
+                    if f.is_file():
+                        print(f"  {f}")
+
+        # Also check if MadGraph created output elsewhere
+        print(f"\nAll directories in {work_dir}:")
+        for item in work_dir.iterdir():
+            print(f"  {item}")
+
         sys.exit(1)
 
-    return lhe_file, hepmc_file
+    print(f"  LHE file: {lhe_file}")
+    return lhe_file
 
 
-def convert_to_hdf5(input_file: Path, output_path: Path, config_path: Path):
-    """Convert LHE or HepMC to HDF5."""
-    import yaml
-    sys.path.insert(0, "/app/src")
-    from madgraph_ml_producer.config import PipelineConfig
-    from madgraph_ml_producer.hdf5_writer import HDF5Writer
-    from madgraph_ml_producer.truth_extractor import TruthExtractor
-
-    with open(config_path) as f:
-        config_dict = yaml.safe_load(f)
-
-    config = PipelineConfig(**config_dict)
+def convert_to_hdf5(lhe_file: Path, output_path: Path, config):
+    """Convert LHE to HDF5 format."""
 
     # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Check input file type
-    input_suffix = input_file.suffix.lower()
-    if input_suffix == ".gz":
-        # Check the actual format
-        stem_suffix = input_file.stem.split(".")[-1].lower()
-        is_hepmc = stem_suffix == "hepmc"
-    else:
-        is_hepmc = input_suffix == ".hepmc"
-
-    if is_hepmc:
-        # Direct HepMC processing
-        writer = HDF5Writer(config)
-        extractor = TruthExtractor(config)
-        writer.process_file(input_file, output_path, extractor)
-    else:
-        # LHE file - need to convert via pyhepmc or process directly
-        print("  Processing LHE file (no parton shower)...")
-        process_lhe_to_hdf5(input_file, output_path, config)
-
+    print(f"  Processing LHE file (parton-level)...")
+    process_lhe_to_hdf5(lhe_file, output_path, config)
     print(f"  Wrote: {output_path}")
 
 
 def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
-    """Process LHE file directly to HDF5 (parton-level, no shower)."""
+    """Process LHE file directly to HDF5."""
     import gzip
     import numpy as np
     import h5py
@@ -305,11 +301,6 @@ def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
     except ImportError:
         print("Error: pylhe not installed")
         sys.exit(1)
-
-    # Handle compressed files
-    if str(lhe_file).endswith(".gz"):
-        # pylhe can handle gzipped files directly
-        pass
 
     print(f"  Reading LHE file: {lhe_file}")
 
@@ -362,12 +353,9 @@ def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
         )
 
         # Process events
-        for i, event in enumerate(tqdm(events_list, desc="Processing events")):
+        for i, event in enumerate(tqdm(events_list, desc="  Converting")):
             # Get final state particles (status == 1)
             final_particles = [p for p in event.particles if p.status == 1]
-
-            # Simple "jet" = each final state parton (at LHE level, no clustering)
-            # For proper jets, we'd need Pythia8 shower first
 
             jets_data = np.zeros((max_jets, len(JET_FEATURES)), dtype=np.float32)
             particles_data = np.zeros((max_jets, max_particles, len(PARTICLE_FEATURES)), dtype=np.float32)
@@ -399,7 +387,12 @@ def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
                 pt = np.sqrt(p.px**2 + p.py**2)
                 pz = p.pz
                 p_tot = np.sqrt(p.px**2 + p.py**2 + p.pz**2)
-                eta = np.arctanh(np.clip(pz / (p_tot + 1e-10), -0.9999, 0.9999))
+
+                if p_tot > 0:
+                    eta = np.arctanh(np.clip(pz / p_tot, -0.9999, 0.9999))
+                else:
+                    eta = 0.0
+
                 phi = np.arctan2(p.py, p.px)
                 mass = np.sqrt(max(0, p.e**2 - p_tot**2))
 

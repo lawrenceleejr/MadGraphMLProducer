@@ -1,0 +1,48 @@
+# Simple top quark pair production for testing
+# Uses built-in Standard Model - no external UFO needed
+
+name: "ttbar_test"
+description: "Top quark pair production (pp -> tt~) for pipeline testing"
+
+collider:
+  beam1_pdg: 2212
+  beam2_pdg: 2212
+  energy_beam1: 6800.0
+  energy_beam2: 6800.0
+
+process:
+  model: "sm"
+  process_string: "p p > t t~"
+  decay_chain: null
+  extra_partons: 0
+  excluded_particles: []
+
+particles: []
+
+matching:
+  enabled: false
+  scheme: "mlm"
+  xqcut: 30.0
+  qcut: 40.0
+
+generation:
+  num_events: 1000
+  random_seed: 12345
+  ptj_min: 20.0
+  etaj_max: 5.0
+
+jets:
+  algorithm: "antikt"
+  radius: 0.4
+  pt_min: 25.0
+  eta_max: 2.5
+
+output:
+  output_dir: "./output"
+  filename_prefix: "ttbar"
+  save_lhe: true
+  save_hepmc: true
+  save_hdf5: true
+  compression: "gzip"
+  max_jets_per_event: 20
+  max_particles_per_jet: 100
