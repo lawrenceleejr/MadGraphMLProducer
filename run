@@ -31,7 +31,12 @@ fi
 
 if ! docker image inspect ${IMAGE_NAME}:${IMAGE_TAG} &> /dev/null || [ "$BUILD_IMAGE" = true ]; then
     echo "Building Docker image (this may take a few minutes on first run)..."
-    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} "$SCRIPT_DIR"
+    if [ "$BUILD_IMAGE" = true ]; then
+        # Force full rebuild with --no-cache when --rebuild is specified
+        docker build --no-cache -t ${IMAGE_NAME}:${IMAGE_TAG} "$SCRIPT_DIR"
+    else
+        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} "$SCRIPT_DIR"
+    fi
     echo "Docker image built successfully!"
     echo ""
 fi
