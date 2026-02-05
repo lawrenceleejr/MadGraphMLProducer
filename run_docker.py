@@ -173,24 +173,30 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
     # Add proc_card content (which has import model, generate, output)
     script_lines.append(proc_content)
 
-    # Add launch command
+    # Add launch command - MadGraph syntax:
+    # launch <dir>
+    #   option=value
+    # done
+    # <param_card_path>
+    # <run_card_path>
+    # done
     script_lines.append(f"\nlaunch {process_name}")
 
     if shower == "pythia8":
-        script_lines.append("  shower=Pythia8")
+        script_lines.append("shower=Pythia8")
     else:
-        script_lines.append("  shower=OFF")
+        script_lines.append("shower=OFF")
 
-    script_lines.append("  done")
+    script_lines.append("done")
 
-    # Point to the cards
-    script_lines.append(f"  {cards_dir}/param_card.dat")
-    script_lines.append(f"  {cards_dir}/run_card.dat")
+    # Point to the cards (these come AFTER the first 'done')
+    script_lines.append(f"{cards_dir}/param_card.dat")
+    script_lines.append(f"{cards_dir}/run_card.dat")
 
     if shower == "pythia8":
-        script_lines.append(f"  {cards_dir}/pythia8_card.dat")
+        script_lines.append(f"{cards_dir}/pythia8_card.dat")
 
-    script_lines.append("  done")
+    script_lines.append("done")
 
     with open(mg5_script, "w") as f:
         f.write("\n".join(script_lines))
@@ -220,14 +226,24 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
         )
 
     if result.returncode != 0:
-        print("MadGraph5 failed!")
-        if not verbose and result.stderr:
-            print("STDERR (last 3000 chars):")
-            print(result.stderr[-3000:])
-        if not verbose and result.stdout:
-            print("STDOUT (last 3000 chars):")
-            print(result.stdout[-3000:])
+        print("MadGraph5 failed with non-zero exit code!")
+        if not verbose:
+            if result.stderr:
+                print("STDERR (last 3000 chars):")
+                print(result.stderr[-3000:])
+            if result.stdout:
+                print("STDOUT (last 3000 chars):")
+                print(result.stdout[-3000:])
         sys.exit(1)
+
+    # Even if return code is 0, check stdout for errors
+    if not verbose and result.stdout:
+        if "error" in result.stdout.lower() or "Error" in result.stdout:
+            print("Warning: Possible errors in MadGraph output:")
+            # Find lines with errors
+            for line in result.stdout.split('\n'):
+                if 'error' in line.lower() or 'Error' in line:
+                    print(f"  {line}")
 
     # Find output files - MadGraph creates process_name/Events/run_01/
     lhe_file = None
