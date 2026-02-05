@@ -20,15 +20,17 @@ RUN python3 -m pip install --no-cache-dir \
 
 # Download and install RPVMSSM_UFO model for R-parity violating SUSY
 # Model from FeynRules: https://feynrules.irmp.ucl.ac.be/wiki/RPVMSSM
+# The UFO model file is named af1_ufo.tgz and extracts to RPVMSSM_UFO directory
 # Find MadGraph5 models directory (varies by image version)
 RUN MG5_DIR=$(find /usr -name "MG5_aMC_v*" -type d 2>/dev/null | head -1) && \
     if [ -z "$MG5_DIR" ]; then MG5_DIR=$(find /home -name "MG5_aMC*" -type d 2>/dev/null | head -1); fi && \
     if [ -z "$MG5_DIR" ]; then MG5_DIR=$(find / -name "models" -path "*/MG5*" -type d 2>/dev/null | head -1 | sed 's|/models||'); fi && \
     echo "Found MadGraph5 at: $MG5_DIR" && \
     cd "$MG5_DIR/models" && \
-    curl -kL -o RPVMSSM_UFO.tar.gz "https://feynrules.irmp.ucl.ac.be/raw-attachment/wiki/RPVMSSM/RPVMSSM_UFO.tar.gz" && \
-    tar -xzf RPVMSSM_UFO.tar.gz && \
-    rm RPVMSSM_UFO.tar.gz && \
+    curl -kL -o af1_ufo.tgz "https://feynrules.irmp.ucl.ac.be/raw-attachment/wiki/RPVMSSM/af1_ufo.tgz" && \
+    tar -xzf af1_ufo.tgz && \
+    rm af1_ufo.tgz && \
+    ls -la && \
     echo "RPVMSSM_UFO model installed in $MG5_DIR/models"
 
 # Create working directories with open permissions (for --user flag)
