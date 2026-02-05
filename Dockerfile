@@ -28,12 +28,8 @@ COPY cards/ /app/cards/
 COPY configs/ /app/configs/
 COPY scripts/ /app/scripts/
 COPY run_docker.py /app/run_docker.py
-COPY pyproject.toml /app/
 
-# Install the package
-RUN pip install -e /app
-
-# Set Python path
+# Set Python path (no pip install needed - we run directly from source)
 ENV PYTHONPATH=/app/src:$PYTHONPATH
 
 # Default entrypoint
