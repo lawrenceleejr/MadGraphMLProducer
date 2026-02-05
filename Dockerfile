@@ -18,6 +18,14 @@ RUN python3 -m pip install --no-cache-dir \
     awkward \
     vector
 
+# Download and install RPVMSSM_UFO model for R-parity violating SUSY
+# Model from FeynRules: https://feynrules.irmp.ucl.ac.be/wiki/RPVMSSM
+RUN cd /root/MG5_aMC/models && \
+    curl -L -o RPVMSSM_UFO.tar.gz "https://feynrules.irmp.ucl.ac.be/raw-attachment/wiki/RPVMSSM/RPVMSSM_UFO.tar.gz" && \
+    tar -xzf RPVMSSM_UFO.tar.gz && \
+    rm RPVMSSM_UFO.tar.gz && \
+    echo "RPVMSSM_UFO model installed"
+
 # Create working directories with open permissions (for --user flag)
 WORKDIR /app
 RUN mkdir -p /app/output /app/work && chmod 777 /app/work /app/output

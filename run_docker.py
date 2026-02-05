@@ -306,7 +306,15 @@ def convert_to_hdf5(lhe_file: Path, output_path: Path, config):
 
 
 def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
-    """Process LHE file directly to HDF5."""
+    """Process LHE file to HDF5 with SPANet and PasswdABC compatible formats.
+
+    Creates a unified HDF5 file with multiple format groups:
+    - /INPUTS/Jets/: SPANet format (MASK, pt, eta, phi, mass, btag)
+    - /TARGETS/: SPANet assignment targets for reconstruction
+    - /source/: PasswdABC format (e, pt, eta, phi per particle)
+    - /EventVars/: PasswdABC event variables (normweight)
+    - Legacy format for backward compatibility
+    """
     import gzip
     import numpy as np
     import h5py
@@ -329,14 +337,104 @@ def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
     max_jets = config.output.max_jets_per_event
     max_particles = config.output.max_particles_per_jet
 
+    # Legacy format features
     PARTICLE_FEATURES = ["pt_rel", "eta_rel", "phi_rel", "energy", "pdg_id"]
     JET_FEATURES = ["pt", "eta", "phi", "mass", "n_constituents", "parent_pdg", "is_signal"]
     EVENT_FEATURES = ["n_jets", "met_x", "met_y", "met_pt", "ht", "n_signal", "weight"]
 
+    # Signal particles for RPV gluino
+    signal_pdg_ids = {1000021}  # gluino (abs value)
+
+    # Check if this is an RPV gluino process
+    is_rpv_gluino = "1000021" in config.process.process_string or "go" in config.process.process_string.lower()
+
     with h5py.File(output_path, "w") as f:
-        # Create datasets
         compression = config.output.compression
 
+        # =====================================================================
+        # SPANet Format: /INPUTS/Jets/
+        # =====================================================================
+        inputs_jets = f.create_group("INPUTS/Jets")
+
+        spanet_mask = inputs_jets.create_dataset(
+            "MASK", shape=(n_events, max_jets), dtype=bool, compression=compression
+        )
+        spanet_pt = inputs_jets.create_dataset(
+            "pt", shape=(n_events, max_jets), dtype=np.float32, compression=compression
+        )
+        spanet_eta = inputs_jets.create_dataset(
+            "eta", shape=(n_events, max_jets), dtype=np.float32, compression=compression
+        )
+        spanet_phi = inputs_jets.create_dataset(
+            "phi", shape=(n_events, max_jets), dtype=np.float32, compression=compression
+        )
+        spanet_mass = inputs_jets.create_dataset(
+            "mass", shape=(n_events, max_jets), dtype=np.float32, compression=compression
+        )
+        spanet_btag = inputs_jets.create_dataset(
+            "btag", shape=(n_events, max_jets), dtype=np.float32, compression=compression
+        )
+
+        # =====================================================================
+        # SPANet Targets: /TARGETS/ for jet-to-particle assignment
+        # For RPV gluino: g1 -> j1 j2 j3, g2 -> j4 j5 j6
+        # =====================================================================
+        targets = f.create_group("TARGETS")
+
+        if is_rpv_gluino:
+            # Gluino 1 decay products (3 jets)
+            g1_group = targets.create_group("g1")
+            g1_j1 = g1_group.create_dataset(
+                "j1", shape=(n_events,), dtype=np.int32, compression=compression
+            )
+            g1_j2 = g1_group.create_dataset(
+                "j2", shape=(n_events,), dtype=np.int32, compression=compression
+            )
+            g1_j3 = g1_group.create_dataset(
+                "j3", shape=(n_events,), dtype=np.int32, compression=compression
+            )
+
+            # Gluino 2 decay products (3 jets)
+            g2_group = targets.create_group("g2")
+            g2_j1 = g2_group.create_dataset(
+                "j1", shape=(n_events,), dtype=np.int32, compression=compression
+            )
+            g2_j2 = g2_group.create_dataset(
+                "j2", shape=(n_events,), dtype=np.int32, compression=compression
+            )
+            g2_j3 = g2_group.create_dataset(
+                "j3", shape=(n_events,), dtype=np.int32, compression=compression
+            )
+
+        # =====================================================================
+        # PasswdABC Format: /source/ and /EventVars/
+        # =====================================================================
+        source = f.create_group("source")
+
+        passwd_e = source.create_dataset(
+            "e", shape=(n_events, max_jets), dtype=np.float32, compression=compression
+        )
+        passwd_pt = source.create_dataset(
+            "pt", shape=(n_events, max_jets), dtype=np.float32, compression=compression
+        )
+        passwd_eta = source.create_dataset(
+            "eta", shape=(n_events, max_jets), dtype=np.float32, compression=compression
+        )
+        passwd_phi = source.create_dataset(
+            "phi", shape=(n_events, max_jets), dtype=np.float32, compression=compression
+        )
+        passwd_mask = source.create_dataset(
+            "mask", shape=(n_events, max_jets), dtype=bool, compression=compression
+        )
+
+        event_vars = f.create_group("EventVars")
+        normweight = event_vars.create_dataset(
+            "normweight", shape=(n_events,), dtype=np.float32, compression=compression
+        )
+
+        # =====================================================================
+        # Legacy Format (backward compatibility)
+        # =====================================================================
         f.create_dataset(
             "particle_features",
             shape=(n_events, max_jets, max_particles, len(PARTICLE_FEATURES)),
@@ -378,19 +476,37 @@ def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
             jet_mask = np.zeros(max_jets, dtype=bool)
             particle_mask = np.zeros((max_jets, max_particles), dtype=bool)
 
+            # SPANet/PasswdABC arrays
+            jet_pt = np.zeros(max_jets, dtype=np.float32)
+            jet_eta = np.zeros(max_jets, dtype=np.float32)
+            jet_phi = np.zeros(max_jets, dtype=np.float32)
+            jet_mass = np.zeros(max_jets, dtype=np.float32)
+            jet_energy = np.zeros(max_jets, dtype=np.float32)
+            jet_btag = np.zeros(max_jets, dtype=np.float32)
+
+            # Track parent gluino for each jet (for SPANet targets)
+            jet_parent_gluino = np.zeros(max_jets, dtype=np.int32)  # 1 or 2 for gluino index
+
             met_x, met_y = 0.0, 0.0
             ht = 0.0
             n_signal = 0
 
-            # Check for signal particles (gluinos, etc.)
-            signal_pdg_ids = {1000021, -1000021}  # gluino
-            for p in event.particles:
+            # Build particle ancestry map for truth matching
+            # Map particle index to parent indices
+            particle_parents = {}
+            gluino_indices = []
+
+            for idx, p in enumerate(event.particles):
                 if abs(p.id) in signal_pdg_ids:
                     n_signal += 1
+                    gluino_indices.append(idx)
+                # Store mother indices (1-indexed in LHE, convert to 0-indexed)
+                if hasattr(p, 'mother1') and p.mother1 > 0:
+                    particle_parents[idx] = (p.mother1 - 1, getattr(p, 'mother2', p.mother1) - 1)
 
             # Process final state particles as "jets" (parton-level)
             jet_idx = 0
-            for p in final_particles:
+            for p_idx, p in enumerate(final_particles):
                 # Skip neutrinos for visible particles
                 if abs(p.id) in {12, 14, 16}:
                     met_x += p.px
@@ -416,12 +532,22 @@ def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
                 if pt < config.jets.pt_min or abs(eta) > config.jets.eta_max:
                     continue
 
-                jets_data[jet_idx] = [pt, eta, phi, mass, 1, 0, 0]
-                jet_mask[jet_idx] = True
+                # Check if this is a b-quark (for btag)
+                is_b = abs(p.id) == 5
 
-                # Single particle as constituent
+                # Legacy format
+                jets_data[jet_idx] = [pt, eta, phi, mass, 1, p.id, 0]
+                jet_mask[jet_idx] = True
                 particles_data[jet_idx, 0] = [1.0, 0.0, 0.0, p.e, p.id]
                 particle_mask[jet_idx, 0] = True
+
+                # SPANet/PasswdABC format
+                jet_pt[jet_idx] = pt
+                jet_eta[jet_idx] = eta
+                jet_phi[jet_idx] = phi
+                jet_mass[jet_idx] = mass
+                jet_energy[jet_idx] = p.e
+                jet_btag[jet_idx] = 1.0 if is_b else 0.0
 
                 ht += pt
                 jet_idx += 1
@@ -431,12 +557,40 @@ def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
 
             event_data = np.array([n_jets, met_x, met_y, met_pt, ht, n_signal, 1.0], dtype=np.float32)
 
-            # Write to HDF5
+            # Write Legacy format
             f["jet_features"][i] = jets_data
             f["particle_features"][i] = particles_data
             f["event_features"][i] = event_data
             f["jet_mask"][i] = jet_mask
             f["particle_mask"][i] = particle_mask
+
+            # Write SPANet format
+            spanet_mask[i] = jet_mask
+            spanet_pt[i] = jet_pt
+            spanet_eta[i] = jet_eta
+            spanet_phi[i] = jet_phi
+            spanet_mass[i] = jet_mass
+            spanet_btag[i] = jet_btag
+
+            # Write PasswdABC format
+            passwd_e[i] = jet_energy
+            passwd_pt[i] = jet_pt
+            passwd_eta[i] = jet_eta
+            passwd_phi[i] = jet_phi
+            passwd_mask[i] = jet_mask
+            normweight[i] = 1.0  # Default weight, can be updated with xsec later
+
+            # Write SPANet targets for RPV gluino
+            # At parton level, assign first 3 jets to g1, next 3 to g2
+            if is_rpv_gluino:
+                # Simple assignment: jets 0,1,2 -> g1, jets 3,4,5 -> g2
+                # Use -1 for missing jets
+                g1_j1[i] = 0 if n_jets > 0 else -1
+                g1_j2[i] = 1 if n_jets > 1 else -1
+                g1_j3[i] = 2 if n_jets > 2 else -1
+                g2_j1[i] = 3 if n_jets > 3 else -1
+                g2_j2[i] = 4 if n_jets > 4 else -1
+                g2_j3[i] = 5 if n_jets > 5 else -1
 
         # Write metadata
         f.attrs["config_name"] = config.name
@@ -450,6 +604,19 @@ def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
         f.attrs["jet_radius"] = 0.0
         f.attrs["process_string"] = config.process.process_string
         f.attrs["model"] = config.process.model
+
+        # SPANet metadata
+        f.attrs["spanet_inputs"] = ["Jets"]
+        f.attrs["spanet_jet_features"] = ["pt", "eta", "phi", "mass", "btag"]
+        if is_rpv_gluino:
+            f.attrs["spanet_targets"] = ["g1", "g2"]
+            f.attrs["spanet_target_structure"] = "g1: j1,j2,j3; g2: j1,j2,j3"
+
+        # PasswdABC metadata
+        f.attrs["passwdabc_source_features"] = ["e", "pt", "eta", "phi"]
+        f.attrs["passwdabc_event_vars"] = ["normweight"]
+
+        print(f"  Output formats: SPANet (/INPUTS/Jets/), PasswdABC (/source/), Legacy")
 
 
 if __name__ == "__main__":
