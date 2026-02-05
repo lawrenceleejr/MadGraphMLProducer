@@ -159,65 +159,70 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
     mg5_output = work_dir / "mg5_run"
     mg5_output.mkdir(exist_ok=True)
 
-    # Create a complete MadGraph script that does everything
-    mg5_script = work_dir / "mg5_script.txt"
-
-    # Read the proc_card content and modify it to include launch
+    # Step 1: Generate the process directory first
+    proc_script = work_dir / "mg5_proc.txt"
     proc_card = cards_dir / "proc_card.dat"
     with open(proc_card) as f:
         proc_content = f.read()
 
-    # Build complete script
-    script_lines = []
+    with open(proc_script, "w") as f:
+        f.write(proc_content)
 
-    # Add proc_card content (which has import model, generate, output)
-    script_lines.append(proc_content)
+    print(f"  Step 1: Generating process code...")
+    cmd = ["mg5_aMC", str(proc_script)]
+    env = os.environ.copy()
+    env["OMP_NUM_THREADS"] = str(cores)
 
-    # Add launch command - MadGraph syntax:
-    # launch <dir>
-    #   option=value
-    # done
-    # <param_card_path>
-    # <run_card_path>
-    # done
-    script_lines.append(f"\nlaunch {process_name}")
+    result = subprocess.run(cmd, cwd=mg5_output, env=env, capture_output=True, text=True)
+    if result.returncode != 0:
+        print("MadGraph process generation failed!")
+        print(result.stderr[-2000:] if result.stderr else "")
+        sys.exit(1)
+
+    # Process directory should now exist
+    process_dir = mg5_output / process_name
+    if not process_dir.exists():
+        print(f"Error: Process directory not created: {process_dir}")
+        sys.exit(1)
+
+    # Step 2: Copy our cards to the Cards directory
+    cards_dest = process_dir / "Cards"
+    print(f"  Step 2: Copying configuration cards...")
+
+    shutil.copy(cards_dir / "param_card.dat", cards_dest / "param_card.dat")
+    shutil.copy(cards_dir / "run_card.dat", cards_dest / "run_card.dat")
+    if shower == "pythia8" and (cards_dir / "pythia8_card.dat").exists():
+        shutil.copy(cards_dir / "pythia8_card.dat", cards_dest / "pythia8_card.dat")
+
+    # Step 3: Create launch script
+    mg5_script = work_dir / "mg5_launch.txt"
+    script_lines = [
+        f"launch {process_dir}",
+    ]
 
     if shower == "pythia8":
         script_lines.append("shower=Pythia8")
     else:
         script_lines.append("shower=OFF")
 
+    # First done: accept shower settings
     script_lines.append("done")
-
-    # Point to the cards (these come AFTER the first 'done')
-    script_lines.append(f"{cards_dir}/param_card.dat")
-    script_lines.append(f"{cards_dir}/run_card.dat")
-
-    if shower == "pythia8":
-        script_lines.append(f"{cards_dir}/pythia8_card.dat")
-
+    # Second done: accept cards (we already copied them)
     script_lines.append("done")
 
     with open(mg5_script, "w") as f:
         f.write("\n".join(script_lines))
 
     if verbose:
-        print(f"  MadGraph script:\n")
-        with open(mg5_script) as f:
-            for line in f:
-                print(f"    {line.rstrip()}")
-        print()
+        print(f"  Launch script:")
+        for line in script_lines:
+            print(f"    {line}")
 
-    # Set environment
-    env = os.environ.copy()
-    env["OMP_NUM_THREADS"] = str(cores)
-
-    # Run MadGraph
-    print(f"  Running mg5_aMC with {cores} cores...")
+    # Step 3: Run the launch
+    print(f"  Step 3: Launching event generation...")
     print(f"  This may take several minutes...")
     cmd = ["mg5_aMC", str(mg5_script)]
 
-    # Always capture output so we can debug
     result = subprocess.run(
         cmd, cwd=mg5_output, env=env,
         capture_output=True, text=True
@@ -234,32 +239,20 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
 
     if result.returncode != 0:
         print("MadGraph5 failed with non-zero exit code!")
-        if not verbose:
-            if result.stderr:
-                print("STDERR (last 3000 chars):")
-                print(result.stderr[-3000:])
-            if result.stdout:
-                print("STDOUT (last 3000 chars):")
-                print(result.stdout[-3000:])
+        if result.stderr:
+            print("STDERR (last 3000 chars):")
+            print(result.stderr[-3000:])
+        if result.stdout:
+            print("STDOUT (last 3000 chars):")
+            print(result.stdout[-3000:])
         sys.exit(1)
-
-    # Even if return code is 0, check stdout for errors
-    if not verbose and result.stdout:
-        if "error" in result.stdout.lower() or "Error" in result.stdout:
-            print("Warning: Possible errors in MadGraph output:")
-            # Find lines with errors
-            for line in result.stdout.split('\n'):
-                if 'error' in line.lower() or 'Error' in line:
-                    print(f"  {line}")
 
     # Find output files - MadGraph creates process_name/Events/run_01/
     lhe_file = None
 
-    # Look in the mg5_output directory and the process output
     search_paths = [
-        mg5_output,
+        process_dir,
         mg5_output / process_name,
-        work_dir / process_name,
     ]
 
     for search_path in search_paths:
