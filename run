@@ -65,6 +65,9 @@ done
 # Build docker run command
 DOCKER_CMD="docker run --rm"
 
+# Run as current user to avoid permission issues with output files
+DOCKER_CMD+=" --user $(id -u):$(id -g)"
+
 # Mount output directory
 DOCKER_CMD+=" -v ${OUTPUT_DIR}:/output"
 
