@@ -18,9 +18,9 @@ RUN python3 -m pip install --no-cache-dir \
     awkward \
     vector
 
-# Create working directories
+# Create working directories with open permissions (for --user flag)
 WORKDIR /app
-RUN mkdir -p /app/output /app/work
+RUN mkdir -p /app/output /app/work && chmod 777 /app/work /app/output
 
 # Copy the application code
 COPY src/ /app/src/
