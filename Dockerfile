@@ -26,7 +26,7 @@ RUN MG5_DIR=$(find /usr -name "MG5_aMC_v*" -type d 2>/dev/null | head -1) && \
     if [ -z "$MG5_DIR" ]; then MG5_DIR=$(find / -name "models" -path "*/MG5*" -type d 2>/dev/null | head -1 | sed 's|/models||'); fi && \
     echo "Found MadGraph5 at: $MG5_DIR" && \
     cd "$MG5_DIR/models" && \
-    curl -L -o RPVMSSM_UFO.tar.gz "https://feynrules.irmp.ucl.ac.be/raw-attachment/wiki/RPVMSSM/RPVMSSM_UFO.tar.gz" && \
+    curl -kL -o RPVMSSM_UFO.tar.gz "https://feynrules.irmp.ucl.ac.be/raw-attachment/wiki/RPVMSSM/RPVMSSM_UFO.tar.gz" && \
     tar -xzf RPVMSSM_UFO.tar.gz && \
     rm RPVMSSM_UFO.tar.gz && \
     echo "RPVMSSM_UFO model installed in $MG5_DIR/models"
