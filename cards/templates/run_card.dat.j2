@@ -23,18 +23,31 @@
   {{ config.generation.random_seed }} = iseed   ! rnd seed (0=assigned automatically=default))
 
 #*********************************************************************
-# Collider type and target particle                                  *
+# Collider type and energy                                           *
+# lpp: 0=photon, 1=proton, -1=antiproton                            *
 #*********************************************************************
-  {{ config.collider.beam1_pdg }} = lpp1    ! beam 1 type (0=photon, 1=proton, -1=antiproton)
-  {{ config.collider.beam2_pdg }} = lpp2    ! beam 2 type
+{% if config.collider.beam1_pdg == 2212 %}
+  1 = lpp1    ! beam 1 type (proton)
+{% elif config.collider.beam1_pdg == -2212 %}
+  -1 = lpp1   ! beam 1 type (antiproton)
+{% else %}
+  0 = lpp1    ! beam 1 type (other)
+{% endif %}
+{% if config.collider.beam2_pdg == 2212 %}
+  1 = lpp2    ! beam 2 type (proton)
+{% elif config.collider.beam2_pdg == -2212 %}
+  -1 = lpp2   ! beam 2 type (antiproton)
+{% else %}
+  0 = lpp2    ! beam 2 type (other)
+{% endif %}
   {{ config.collider.energy_beam1 }} = ebeam1  ! beam 1 total energy in GeV
   {{ config.collider.energy_beam2 }} = ebeam2  ! beam 2 total energy in GeV
 
 #*********************************************************************
-# PDF CHOICE: Use built-in (internal) or LHAPDF (external) PDF       *
+# PDF CHOICE: Use nn23lo1 (built-in, no LHAPDF needed)               *
 #*********************************************************************
-  lhapdf = pdlabel     ! PDF set
-  $DEFAULT_PDF_MEMBERS = lhaid ! PDF set member ID
+  nn23lo1 = pdlabel     ! PDF set (built-in)
+  230000 = lhaid        ! LHAPDF ID (for reference)
 
 #*********************************************************************
 # Renormalization and factorization scales                           *
@@ -67,8 +80,8 @@
   0.0 = ptj       ! minimum pt for the jets
   0.0 = ptb       ! minimum pt for the b
   -1.0 = ptl      ! minimum pt for leptons
-  0.0 = etaj      ! max rapidity for jets
-  0.0 = etab      ! max rapidity for b
+  -1.0 = etaj     ! max rapidity for jets (-1 = no cut)
+  -1.0 = etab     ! max rapidity for b
   -1.0 = etal     ! max rapidity for leptons
   0.0 = drjj      ! min deltaR(j,j)
   0.0 = drbb      ! min deltaR(b,b)
@@ -77,12 +90,12 @@
 {% else %}
 # Standard generation cuts (no matching)
   {{ "%.1f"|format(config.generation.ptj_min) }} = ptj       ! minimum pt for the jets
-  20.0 = ptb       ! minimum pt for the b
-  {{ "%.1f"|format(config.generation.ptl_min) }} = ptl       ! minimum pt for leptons
-  {{ "%.1f"|format(config.generation.etaj_max) }} = etaj     ! max rapidity for jets
-  5.0 = etab      ! max rapidity for b
-  {% if config.generation.etal_max > 0 %}{{ "%.1f"|format(config.generation.etal_max) }}{% else %}-1.0{% endif %} = etal     ! max rapidity for leptons
-  {{ "%.2f"|format(config.generation.drjj_min) }} = drjj      ! min deltaR(j,j)
+  0.0 = ptb       ! minimum pt for the b
+  0.0 = ptl       ! minimum pt for leptons
+  -1.0 = etaj     ! max rapidity for jets (-1 = no cut)
+  -1.0 = etab     ! max rapidity for b
+  -1.0 = etal     ! max rapidity for leptons
+  0.0 = drjj      ! min deltaR(j,j)
   0.0 = drbb      ! min deltaR(b,b)
   0.0 = drll      ! min deltaR(l,l)
   0.0 = drjl      ! min deltaR(j,l)
@@ -96,24 +109,6 @@
   0.0 = mmll    ! min invariant mass of l+l-
 
 #*********************************************************************
-# Photon isolation                                                    *
-#*********************************************************************
-  0.4 = ptgmin    ! minimum pt for photon
-  -1.0 = etagamma ! max rapidity for photon
-  0.4 = r0gamma   ! photon isolation cone
-
-#*********************************************************************
-# Heavy particle cuts                                                 *
-#*********************************************************************
-  0.0 = ptheavy ! minimum pt for heavy particles (H, Z, W, T, B, ...)
-
-#*********************************************************************
 # Systematics                                                         *
 #*********************************************************************
   {{ config.generation.use_syst | string }} = use_syst      ! Enable systematics studies
-
-#*********************************************************************
-# BW treatment                                                        *
-#*********************************************************************
-  True = bwcutoff  ! Apply cutoff for Breit-Wigner
-  15.0 = bwcutoff_value ! BW cutoff value in units of width
