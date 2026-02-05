@@ -1,7 +1,7 @@
 # All-in-one Docker image for MadGraphMLProducer
 # Contains MadGraph5, Pythia8, and all processing tools
 
-FROM scailfin/madgraph5-amc-nlo:mg5_amc3.5.4
+FROM scailfin/madgraph5-amc-nlo:mg5_amc3.5.1
 
 # Install Python packages for post-processing
 RUN python3 -m pip install --no-cache-dir \
