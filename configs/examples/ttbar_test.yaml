@@ -26,7 +26,7 @@ matching:
   qcut: 40.0
 
 generation:
-  num_events: 1000
+  num_events: 100
   random_seed: 12345
   ptj_min: 20.0
   etaj_max: 5.0

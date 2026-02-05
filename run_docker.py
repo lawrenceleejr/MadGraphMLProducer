@@ -217,13 +217,20 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
     print(f"  This may take several minutes...")
     cmd = ["mg5_aMC", str(mg5_script)]
 
+    # Always capture output so we can debug
+    result = subprocess.run(
+        cmd, cwd=mg5_output, env=env,
+        capture_output=True, text=True
+    )
+
+    # Show output in verbose mode
     if verbose:
-        result = subprocess.run(cmd, cwd=mg5_output, env=env)
-    else:
-        result = subprocess.run(
-            cmd, cwd=mg5_output, env=env,
-            capture_output=True, text=True
-        )
+        if result.stdout:
+            print("\n  === MadGraph STDOUT ===")
+            print(result.stdout[-5000:])
+        if result.stderr:
+            print("\n  === MadGraph STDERR ===")
+            print(result.stderr[-2000:])
 
     if result.returncode != 0:
         print("MadGraph5 failed with non-zero exit code!")
