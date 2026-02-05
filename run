@@ -1,0 +1,92 @@
+#!/bin/bash
+# MadGraphMLProducer - Single command event generation
+#
+# Usage:
+#   ./run                              # Default: 10k RPV gluino events → events.h5
+#   ./run -n 50000                     # Generate 50k events
+#   ./run -o my_output.h5              # Custom output file
+#   ./run -c /path/to/config.yaml      # Custom config (use absolute path)
+#   ./run --help                       # Show all options
+
+set -e
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+IMAGE_NAME="madgraph-ml-producer"
+IMAGE_TAG="latest"
+
+# Check if Docker is available
+if ! command -v docker &> /dev/null; then
+    echo "Error: Docker is not installed or not in PATH"
+    echo "Please install Docker: https://docs.docker.com/get-docker/"
+    exit 1
+fi
+
+# Build image if it doesn't exist or if --rebuild is passed
+BUILD_IMAGE=false
+if [[ "$*" == *"--rebuild"* ]]; then
+    BUILD_IMAGE=true
+    # Remove --rebuild from arguments
+    set -- "${@/--rebuild/}"
+fi
+
+if ! docker image inspect ${IMAGE_NAME}:${IMAGE_TAG} &> /dev/null || [ "$BUILD_IMAGE" = true ]; then
+    echo "Building Docker image (this may take a few minutes on first run)..."
+    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} "$SCRIPT_DIR"
+    echo "Docker image built successfully!"
+    echo ""
+fi
+
+# Parse arguments to handle output path and config path
+OUTPUT_DIR="$(pwd)"
+OUTPUT_FILE="events.h5"
+CONFIG_PATH=""
+DOCKER_ARGS=""
+REMAINING_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -o|--output)
+            OUTPUT_PATH="$2"
+            OUTPUT_DIR="$(cd "$(dirname "$OUTPUT_PATH")" 2>/dev/null && pwd || echo "$(pwd)")"
+            OUTPUT_FILE="$(basename "$OUTPUT_PATH")"
+            shift 2
+            ;;
+        -c|--config)
+            CONFIG_PATH="$2"
+            shift 2
+            ;;
+        *)
+            REMAINING_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Build docker run command
+DOCKER_CMD="docker run --rm"
+
+# Mount output directory
+DOCKER_CMD+=" -v ${OUTPUT_DIR}:/output"
+
+# Handle config file mounting
+if [ -n "$CONFIG_PATH" ]; then
+    if [ -f "$CONFIG_PATH" ]; then
+        CONFIG_DIR="$(cd "$(dirname "$CONFIG_PATH")" && pwd)"
+        CONFIG_FILE="$(basename "$CONFIG_PATH")"
+        DOCKER_CMD+=" -v ${CONFIG_DIR}:/config:ro"
+        REMAINING_ARGS+=("-c" "/config/${CONFIG_FILE}")
+    else
+        echo "Error: Config file not found: $CONFIG_PATH"
+        exit 1
+    fi
+fi
+
+# Add output path
+REMAINING_ARGS+=("-o" "/output/${OUTPUT_FILE}")
+
+# Run the container
+DOCKER_CMD+=" ${IMAGE_NAME}:${IMAGE_TAG} ${REMAINING_ARGS[*]}"
+
+echo "Running event generation..."
+echo ""
+eval $DOCKER_CMD
