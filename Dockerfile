@@ -20,11 +20,16 @@ RUN python3 -m pip install --no-cache-dir \
 
 # Download and install RPVMSSM_UFO model for R-parity violating SUSY
 # Model from FeynRules: https://feynrules.irmp.ucl.ac.be/wiki/RPVMSSM
-RUN cd /root/MG5_aMC/models && \
+# Find MadGraph5 models directory (varies by image version)
+RUN MG5_DIR=$(find /usr -name "MG5_aMC_v*" -type d 2>/dev/null | head -1) && \
+    if [ -z "$MG5_DIR" ]; then MG5_DIR=$(find /home -name "MG5_aMC*" -type d 2>/dev/null | head -1); fi && \
+    if [ -z "$MG5_DIR" ]; then MG5_DIR=$(find / -name "models" -path "*/MG5*" -type d 2>/dev/null | head -1 | sed 's|/models||'); fi && \
+    echo "Found MadGraph5 at: $MG5_DIR" && \
+    cd "$MG5_DIR/models" && \
     curl -L -o RPVMSSM_UFO.tar.gz "https://feynrules.irmp.ucl.ac.be/raw-attachment/wiki/RPVMSSM/RPVMSSM_UFO.tar.gz" && \
     tar -xzf RPVMSSM_UFO.tar.gz && \
     rm RPVMSSM_UFO.tar.gz && \
-    echo "RPVMSSM_UFO model installed"
+    echo "RPVMSSM_UFO model installed in $MG5_DIR/models"
 
 # Create working directories with open permissions (for --user flag)
 WORKDIR /app
