@@ -20,7 +20,7 @@ RUN python3 -m pip install --no-cache-dir \
 
 # Download and install RPVMSSM_UFO model for R-parity violating SUSY
 # Model from FeynRules: https://feynrules.irmp.ucl.ac.be/wiki/RPVMSSM
-# The UFO model file is named af1_ufo.tgz and extracts to RPVMSSM_UFO directory
+# The UFO model file is named af1_ufo.tgz - rename extracted dir to RPVMSSM_UFO
 # Find MadGraph5 models directory (varies by image version)
 RUN MG5_DIR=$(find /usr -name "MG5_aMC_v*" -type d 2>/dev/null | head -1) && \
     if [ -z "$MG5_DIR" ]; then MG5_DIR=$(find /home -name "MG5_aMC*" -type d 2>/dev/null | head -1); fi && \
@@ -30,6 +30,11 @@ RUN MG5_DIR=$(find /usr -name "MG5_aMC_v*" -type d 2>/dev/null | head -1) && \
     curl -kL -o af1_ufo.tgz "https://feynrules.irmp.ucl.ac.be/raw-attachment/wiki/RPVMSSM/af1_ufo.tgz" && \
     tar -xzf af1_ufo.tgz && \
     rm af1_ufo.tgz && \
+    EXTRACTED_DIR=$(ls -d */ | grep -i -E "(rpv|ufo|mssm)" | head -1 | tr -d '/') && \
+    if [ -n "$EXTRACTED_DIR" ] && [ "$EXTRACTED_DIR" != "RPVMSSM_UFO" ]; then \
+        echo "Renaming $EXTRACTED_DIR to RPVMSSM_UFO"; \
+        mv "$EXTRACTED_DIR" RPVMSSM_UFO; \
+    fi && \
     ls -la && \
     echo "RPVMSSM_UFO model installed in $MG5_DIR/models"
 
