@@ -208,57 +208,50 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
     if shower == "pythia8" and (cards_dir / "pythia8_card.dat").exists():
         shutil.copy(cards_dir / "pythia8_card.dat", cards_dest / "pythia8_card.dat")
 
-    # Step 3: Create launch script
-    mg5_script = work_dir / "mg5_launch.txt"
-    script_lines = [
-        f"launch {process_dir}",
-    ]
-
-    if shower == "pythia8":
-        script_lines.append("shower=Pythia8")
-    else:
-        script_lines.append("shower=OFF")
-
-    # First done: accept shower settings
-    script_lines.append("done")
-    # Second done: accept cards (we already copied them)
-    script_lines.append("done")
-
-    with open(mg5_script, "w") as f:
-        f.write("\n".join(script_lines))
-
-    if verbose:
-        print(f"  Launch script:")
-        for line in script_lines:
-            print(f"    {line}")
-
     # Step 3: Run the launch
     print(f"  Step 3: Launching event generation...")
     print(f"  This may take several minutes...")
-    cmd = ["mg5_aMC", str(mg5_script)]
 
-    result = subprocess.run(
-        cmd, cwd=mg5_output, env=env,
-        capture_output=True, text=True
-    )
+    # Use generate_events -f directly instead of mg5_aMC interactive launch.
+    # This is more reliable as it skips interactive prompts.
+    generate_events_bin = process_dir / "bin" / "generate_events"
 
-    # Show output in verbose mode
-    if verbose:
-        if result.stdout:
-            print("\n  === MadGraph STDOUT ===")
-            print(result.stdout[-5000:])
-        if result.stderr:
-            print("\n  === MadGraph STDERR ===")
-            print(result.stderr[-2000:])
+    if generate_events_bin.exists():
+        # Direct invocation: faster and no interactive prompt issues
+        cmd = [str(generate_events_bin), "-f"]
+        if shower == "pythia8":
+            cmd += ["--shower=Pythia8"]
+        result = subprocess.run(
+            cmd, cwd=process_dir, env=env,
+            capture_output=True, text=True
+        )
+    else:
+        # Fallback: mg5_aMC launch script
+        mg5_script = work_dir / "mg5_launch.txt"
+        script_lines = [
+            f"launch {process_dir}",
+            "shower=Pythia8" if shower == "pythia8" else "shower=OFF",
+            "done",  # accept shower
+            "done",  # accept cards
+        ]
+        with open(mg5_script, "w") as f:
+            f.write("\n".join(script_lines))
+        cmd = ["mg5_aMC", str(mg5_script)]
+        result = subprocess.run(
+            cmd, cwd=mg5_output, env=env,
+            capture_output=True, text=True
+        )
+
+    # Always show last portion of output for visibility
+    if result.stdout:
+        print("\n  --- MadGraph output (last 3000 chars) ---")
+        print(result.stdout[-3000:])
+    if result.stderr:
+        print("\n  --- MadGraph stderr ---")
+        print(result.stderr[-1000:])
 
     if result.returncode != 0:
         print("MadGraph5 failed with non-zero exit code!")
-        if result.stderr:
-            print("STDERR (last 3000 chars):")
-            print(result.stderr[-3000:])
-        if result.stdout:
-            print("STDOUT (last 3000 chars):")
-            print(result.stdout[-3000:])
         sys.exit(1)
 
     # Find output files - MadGraph creates process_name/Events/run_01/
