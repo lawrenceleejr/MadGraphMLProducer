@@ -174,14 +174,28 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
     env["OMP_NUM_THREADS"] = str(cores)
 
     result = subprocess.run(cmd, cwd=mg5_output, env=env, capture_output=True, text=True)
+
+    # Always show output for debugging
+    if verbose or result.returncode != 0:
+        if result.stdout:
+            print("--- MadGraph stdout ---")
+            print(result.stdout[-4000:])
+        if result.stderr:
+            print("--- MadGraph stderr ---")
+            print(result.stderr[-2000:])
+
     if result.returncode != 0:
         print("MadGraph process generation failed!")
-        print(result.stderr[-2000:] if result.stderr else "")
         sys.exit(1)
 
     # Process directory should now exist
     process_dir = mg5_output / process_name
     if not process_dir.exists():
+        # Show output to help debug
+        print("--- MadGraph stdout (last 4000 chars) ---")
+        print(result.stdout[-4000:] if result.stdout else "(empty)")
+        print("--- MadGraph stderr (last 2000 chars) ---")
+        print(result.stderr[-2000:] if result.stderr else "(empty)")
         print(f"Error: Process directory not created: {process_dir}")
         sys.exit(1)
 
