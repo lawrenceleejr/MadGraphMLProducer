@@ -36,7 +36,10 @@ RUN MG5_DIR=$(find /usr -name "MG5_aMC_v*" -type d 2>/dev/null | head -1) && \
         mv "$EXTRACTED_DIR" RPVMSSM_UFO; \
     fi && \
     ls -la && \
-    echo "RPVMSSM_UFO model installed in $MG5_DIR/models"
+    echo "RPVMSSM_UFO model installed in $MG5_DIR/models" && \
+    echo "Converting model to Python 3..." && \
+    echo "convert model $MG5_DIR/models/RPVMSSM_UFO" | mg5_aMC && \
+    echo "Model conversion complete"
 
 # Create working directories with open permissions (for --user flag)
 WORKDIR /app
