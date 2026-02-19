@@ -151,6 +151,71 @@ def generate_cards(config_path: Path, work_dir: Path, num_events: int, seed: int
     return output_dir, config
 
 
+def patch_param_card(param_card_path: Path, config):
+    """Patch specific values in an auto-generated param_card.dat.
+
+    Used for complex UFO models (RPVMSSM etc.) where MadGraph auto-generates
+    a full param_card with many blocks. We only update the values specified
+    in the config rather than replacing the whole file.
+    """
+    with open(param_card_path) as f:
+        lines = f.readlines()
+
+    # Build update maps: {block_name: {pdg_id_or_index: new_value}}
+    mass_updates = {}
+    for particle in config.particles:
+        if particle.mass is not None:
+            mass_updates[str(particle.pdg_id)] = particle.mass
+
+    # RPV coupling updates from process config extras
+    rpv_updates = {}  # {(block, index_str): value}
+    if hasattr(config.process, 'rpv_couplings'):
+        for coupling in config.process.rpv_couplings:
+            rpv_updates[(coupling['block'].upper(), coupling['index'])] = coupling['value']
+
+    current_block = None
+    new_lines = []
+    for line in lines:
+        stripped = line.strip().lower()
+
+        # Detect block header
+        if stripped.startswith('block '):
+            current_block = stripped.split()[1].upper()
+            new_lines.append(line)
+            continue
+
+        # Skip decay/comment lines for block tracking
+        if stripped.startswith('decay') or stripped.startswith('#'):
+            if stripped.startswith('decay'):
+                current_block = None
+            new_lines.append(line)
+            continue
+
+        # Try to patch MASS block
+        if current_block == 'MASS' and mass_updates:
+            parts = line.split()
+            if len(parts) >= 2 and parts[0].lstrip('-').isdigit():
+                pdg = parts[0]
+                if pdg in mass_updates:
+                    comment = ' '.join(parts[2:]) if len(parts) > 2 else ''
+                    line = f"  {pdg:>10}  {mass_updates[pdg]:<14.6e}  # {comment}\n"
+
+        # Try to patch RPV coupling blocks
+        if current_block in ('RVLAMUDD', 'RVLAMLLE', 'RVLAMLQD') and rpv_updates:
+            parts = line.split()
+            if len(parts) >= 2:
+                idx = parts[0]
+                key = (current_block, idx)
+                if key in rpv_updates:
+                    comment = ' '.join(parts[2:]) if len(parts) > 2 else ''
+                    line = f"  {idx:>5}  {rpv_updates[key]:<14.6e}  # {comment}\n"
+
+        new_lines.append(line)
+
+    with open(param_card_path, 'w') as f:
+        f.writelines(new_lines)
+
+
 def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
                         cores: int, shower: str, verbose: bool) -> Path:
     """Run MadGraph5 with optional Pythia8 shower."""
@@ -203,10 +268,20 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
     cards_dest = process_dir / "Cards"
     print(f"  Step 2: Copying configuration cards...")
 
-    shutil.copy(cards_dir / "param_card.dat", cards_dest / "param_card.dat")
+    # run_card and pythia8_card are always replaced with ours
     shutil.copy(cards_dir / "run_card.dat", cards_dest / "run_card.dat")
     if shower == "pythia8" and (cards_dir / "pythia8_card.dat").exists():
         shutil.copy(cards_dir / "pythia8_card.dat", cards_dest / "pythia8_card.dat")
+
+    # For param_card: if the model auto-generated a full card (MSSM/UFO models),
+    # patch only the values we need rather than replacing the whole file.
+    generated_param = cards_dest / "param_card.dat"
+    our_param = cards_dir / "param_card.dat"
+    if generated_param.exists() and generated_param.stat().st_size > our_param.stat().st_size * 3:
+        print(f"  Patching auto-generated param_card (model has extra blocks)...")
+        patch_param_card(generated_param, config)
+    else:
+        shutil.copy(our_param, generated_param)
 
     # Step 3: Run the launch
     print(f"  Step 3: Launching event generation...")
