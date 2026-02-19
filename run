@@ -100,8 +100,10 @@ if [ -z "$OUTPUT_FILE" ]; then
 else
     # User specified output file
     if [[ "$OUTPUT_FILE" == */* ]]; then
-        # Path included
-        OUTPUT_DIR="$(cd "$(dirname "$OUTPUT_FILE")" 2>/dev/null && pwd || mkdir -p "$(dirname "$OUTPUT_FILE")" && cd "$(dirname "$OUTPUT_FILE")" && pwd)"
+        # Path included - create directory first, then resolve it
+        OUTPUT_DIR_RAW="$(dirname "$OUTPUT_FILE")"
+        mkdir -p "$OUTPUT_DIR_RAW"
+        OUTPUT_DIR="$(cd "$OUTPUT_DIR_RAW" && pwd)"
         OUTPUT_FILE="$(basename "$OUTPUT_FILE")"
     else
         # Just filename, use default output dir
