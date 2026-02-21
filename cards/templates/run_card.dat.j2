@@ -120,4 +120,8 @@
 #*********************************************************************
 # Systematics                                                         *
 #*********************************************************************
-  {{ config.generation.use_syst | string }} = use_syst      ! Enable systematics studies
+{% if shower == "pythia8" %}
+  False = use_syst      ! Disabled: Pythia8 incompatible with syst reweighting
+{% else %}
+  {{ config.generation.use_syst | string }} = use_syst      ! Enable systematics weights
+{% endif %}
