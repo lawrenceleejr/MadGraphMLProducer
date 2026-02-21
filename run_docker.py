@@ -273,15 +273,16 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
     if shower == "pythia8" and (cards_dir / "pythia8_card.dat").exists():
         shutil.copy(cards_dir / "pythia8_card.dat", cards_dest / "pythia8_card.dat")
 
-    # For param_card: if the model auto-generated a full card (MSSM/UFO models),
-    # patch only the values we need rather than replacing the whole file.
+    # For param_card: always patch the auto-generated one rather than replacing it.
+    # MadGraph generates a model-correct param_card during process generation.
+    # We only update the specific values (masses, couplings) from our config.
     generated_param = cards_dest / "param_card.dat"
-    our_param = cards_dir / "param_card.dat"
-    if generated_param.exists() and generated_param.stat().st_size > our_param.stat().st_size * 3:
-        print(f"  Patching auto-generated param_card (model has extra blocks)...")
+    if generated_param.exists():
+        print(f"  Patching auto-generated param_card with config values...")
         patch_param_card(generated_param, config)
     else:
-        shutil.copy(our_param, generated_param)
+        # Fallback: use our template (simple SM models where MG5 may not auto-generate)
+        shutil.copy(cards_dir / "param_card.dat", generated_param)
 
     # Step 3: Run the launch
     print(f"  Step 3: Launching event generation...")
