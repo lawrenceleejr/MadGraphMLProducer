@@ -98,7 +98,7 @@ def main():
 
     # Step 1: Generate cards
     print("\n[1/3] Generating MadGraph configuration...")
-    cards_dir, config = generate_cards(config_path, work_dir, args.events, args.seed)
+    cards_dir, config = generate_cards(config_path, work_dir, args.events, args.seed, args.shower)
 
     # Step 2: Run MadGraph + Pythia8
     print("\n[2/3] Running MadGraph5 + Pythia8...")
@@ -123,7 +123,7 @@ def main():
     print("=" * 60)
 
 
-def generate_cards(config_path: Path, work_dir: Path, num_events: int, seed: int) -> tuple:
+def generate_cards(config_path: Path, work_dir: Path, num_events: int, seed: int, shower: str = "pythia8") -> tuple:
     """Generate MadGraph and Pythia8 cards."""
     import yaml
     sys.path.insert(0, "/app/src")
@@ -144,6 +144,7 @@ def generate_cards(config_path: Path, work_dir: Path, num_events: int, seed: int
         config,
         template_dir=Path("/app/cards/templates"),
         output_dir=cards_dir,
+        extra_vars={"shower": shower},
     )
     output_dir = generator.generate_all_cards()
 
@@ -293,10 +294,9 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
     generate_events_bin = process_dir / "bin" / "generate_events"
 
     if generate_events_bin.exists():
-        # Direct invocation: faster and no interactive prompt issues
+        # Direct invocation with -f (force, no prompts).
+        # Shower is configured via parton_shower in run_card.dat.
         cmd = [str(generate_events_bin), "-f"]
-        if shower == "pythia8":
-            cmd += ["--shower=Pythia8"]
         result = subprocess.run(
             cmd, cwd=process_dir, env=env,
             capture_output=True, text=True

@@ -109,6 +109,15 @@
   0.0 = mmll    ! min invariant mass of l+l-
 
 #*********************************************************************
+# Parton shower                                                        *
+#*********************************************************************
+{% if shower == "pythia8" %}
+  PYTHIA8 = parton_shower  ! Parton shower program
+{% else %}
+  OFF = parton_shower       ! No parton shower
+{% endif %}
+
+#*********************************************************************
 # Systematics                                                         *
 #*********************************************************************
   {{ config.generation.use_syst | string }} = use_syst      ! Enable systematics studies

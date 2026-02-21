@@ -40,6 +40,7 @@ class CardGenerator:
         config: PipelineConfig,
         template_dir: Optional[Path] = None,
         output_dir: Optional[Path] = None,
+        extra_vars: Optional[dict] = None,
     ):
         """
         Initialize the card generator.
@@ -48,10 +49,12 @@ class CardGenerator:
             config: Pipeline configuration
             template_dir: Directory containing Jinja2 templates
             output_dir: Directory to write generated cards
+            extra_vars: Extra variables to pass to all templates (e.g. shower)
         """
         self.config = config
         self.template_dir = Path(template_dir) if template_dir else self.DEFAULT_TEMPLATE_DIR
         self.output_dir = Path(output_dir) if output_dir else Path("cards/generated")
+        self.extra_vars = extra_vars or {}
 
         # Set up Jinja2 environment
         self.env = Environment(
@@ -123,8 +126,8 @@ class CardGenerator:
             logger.error(f"Template not found: {template_name}")
             raise FileNotFoundError(f"Template not found: {self.template_dir / template_name}")
 
-        # Render template with config
-        content = template.render(config=self.config)
+        # Render template with config and any extra variables
+        content = template.render(config=self.config, **self.extra_vars)
 
         # Write output
         output_path = output_dir / output_name
