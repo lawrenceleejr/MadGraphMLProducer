@@ -1,0 +1,56 @@
+name: "gluino_rpv_onshell_squark"
+description: "RPV gluino via on-shell squark: go > u ul, ul > d s"
+
+collider:
+  beam1_pdg: 2212
+  beam2_pdg: 2212
+  energy_beam1: 6800.0
+  energy_beam2: 6800.0
+
+process:
+  model: "RPVMSSM_UFO"
+  process_string: "p p > go go"
+  decay_chain: "(go > u ul), (ul > d s)"
+  extra_partons: 0
+
+particles:
+  - pdg_id: 1000021
+    name: "gluino"
+    mass: 1000.0
+    width: null
+  - pdg_id: 1000002
+    name: "ul"  # up-squark-left
+    mass: 800.0  # configurable squark mass
+    width: null
+
+# Custom decays for on-shell squark topology
+decays:
+  - pdg_id: 1000021  # gluino
+    width: 1.0
+    channels:
+      - br: 1.0
+        products: [2, 1000002]  # u ul (u quark + up-squark-left)
+  - pdg_id: 1000002  # up-squark-left
+    width: 1.0
+    channels:
+      - br: 1.0
+        products: [1, 3]  # d s (down + strange)
+
+matching:
+  enabled: false
+
+generation:
+  num_events: 100
+  random_seed: 12345
+
+jets:
+  algorithm: "antikt"
+  radius: 0.4
+  pt_min: 25.0
+  eta_max: 2.5
+
+output:
+  save_hdf5: true
+  compression: "gzip"
+  max_jets_per_event: 20
+  max_particles_per_jet: 100

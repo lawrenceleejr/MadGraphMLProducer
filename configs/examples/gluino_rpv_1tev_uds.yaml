@@ -1,0 +1,57 @@
+name: "gluino_rpv_1tev_uds"
+description: "RPV gluino pair production, 1 TeV, go > uds decay, 1 extra parton"
+
+collider:
+  beam1_pdg: 2212
+  beam2_pdg: 2212
+  energy_beam1: 6800.0
+  energy_beam2: 6800.0
+
+process:
+  model: "RPVMSSM_UFO"
+  process_string: "p p > go go"
+  decay_chain: "(go > u d s)"
+  extra_partons: 1
+  excluded_particles:
+    - "ul"
+    - "ur"
+    - "dl"
+    - "dr"
+    - "cl"
+    - "cr"
+    - "sl"
+    - "sr"
+    - "b1"
+    - "b2"
+    - "t1"
+    - "t2"
+
+particles:
+  - pdg_id: 1000021
+    name: "gluino"
+    mass: 1000.0
+    width: null
+
+matching:
+  enabled: true
+  scheme: "mlm"
+  xqcut: 30.0
+  qcut: 40.0
+  max_jet_flavor: 5
+  kt_scheme: 1
+
+generation:
+  num_events: 100
+  random_seed: 12345
+
+jets:
+  algorithm: "antikt"
+  radius: 0.4
+  pt_min: 25.0
+  eta_max: 2.5
+
+output:
+  save_hdf5: true
+  compression: "gzip"
+  max_jets_per_event: 20
+  max_particles_per_jet: 100

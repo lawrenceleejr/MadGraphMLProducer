@@ -134,19 +134,54 @@ def generate_cards(config_path: Path, work_dir: Path, num_events: int, seed: int
         config_dict = yaml.safe_load(f)
 
     # Override settings
+    if "generation" not in config_dict:
+        config_dict["generation"] = {}
     config_dict["generation"]["num_events"] = num_events
     config_dict["generation"]["random_seed"] = seed
 
     config = PipelineConfig(**config_dict)
 
     cards_dir = work_dir / "cards"
-    generator = CardGenerator(
-        config,
-        template_dir=Path("/app/cards/templates"),
-        output_dir=cards_dir,
-        extra_vars={"shower": shower},
-    )
-    output_dir = generator.generate_all_cards()
+    output_dir = cards_dir / config.name
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Check for custom cards
+    custom_param = config.custom_param_card
+    custom_run = config.custom_run_card
+
+    if custom_param or custom_run:
+        print(f"  Using custom cards...")
+        # Generate only the cards we need from templates
+        generator = CardGenerator(
+            config,
+            template_dir=Path("/app/cards/templates"),
+            output_dir=cards_dir,
+            extra_vars={"shower": shower},
+        )
+        # Always generate proc_card from template
+        generator.generate_proc_card(output_dir)
+        generator.generate_pythia8_card(output_dir)
+
+        # Copy custom cards or generate from template
+        if custom_param:
+            print(f"    Using custom param_card: {custom_param}")
+            shutil.copy(custom_param, output_dir / "param_card.dat")
+        else:
+            generator.generate_param_card(output_dir)
+
+        if custom_run:
+            print(f"    Using custom run_card: {custom_run}")
+            shutil.copy(custom_run, output_dir / "run_card.dat")
+        else:
+            generator.generate_run_card(output_dir)
+    else:
+        generator = CardGenerator(
+            config,
+            template_dir=Path("/app/cards/templates"),
+            output_dir=cards_dir,
+            extra_vars={"shower": shower},
+        )
+        output_dir = generator.generate_all_cards()
 
     print(f"  Generated cards in: {output_dir}")
     return output_dir, config
@@ -163,21 +198,42 @@ def patch_param_card(param_card_path: Path, config):
         content = f.read()
         lines = content.splitlines(keepends=True)
 
-    # Build update maps: {block_name: {pdg_id_or_index: new_value}}
+    # Build update maps
     mass_updates = {}
     for particle in config.particles:
         if particle.mass is not None:
             mass_updates[str(particle.pdg_id)] = particle.mass
 
-    # RPV coupling updates from process config extras
-    rpv_updates = {}  # {(block, index_str): value}
+    # Build decay updates from config.decays
+    decay_updates = {}  # {pdg_id: DecayConfig}
+    if hasattr(config, 'decays') and config.decays:
+        for decay in config.decays:
+            decay_updates[str(decay.pdg_id)] = decay
+
+    # If no explicit decays but decay_chain mentions go > u d s, add default gluino decay
+    if not decay_updates and hasattr(config.process, 'decay_chain') and config.process.decay_chain:
+        decay_chain = config.process.decay_chain.lower()
+        if 'go' in decay_chain and ('u' in decay_chain or 'd' in decay_chain or 's' in decay_chain):
+            # Create a default gluino decay config
+            class DefaultDecay:
+                pdg_id = 1000021
+                width = 1.0
+                class Channel:
+                    br = 1.0
+                    products = [2, 1, 3]  # u d s
+                channels = [Channel()]
+            decay_updates['1000021'] = DefaultDecay()
+
+    # RPV coupling updates
+    rpv_updates = {}
     if hasattr(config.process, 'rpv_couplings'):
         for coupling in config.process.rpv_couplings:
             rpv_updates[(coupling['block'].upper(), coupling['index'])] = coupling['value']
 
     current_block = None
     new_lines = []
-    gluino_decay_updated = False
+    skip_decay_channels = False
+    current_decay_pdg = None
 
     for line in lines:
         stripped = line.strip().lower()
@@ -185,41 +241,41 @@ def patch_param_card(param_card_path: Path, config):
         # Detect block header
         if stripped.startswith('block '):
             current_block = stripped.split()[1].upper()
+            skip_decay_channels = False
             new_lines.append(line)
             continue
 
-        # Handle DECAY lines - check for gluino decay
+        # Handle DECAY lines
         if stripped.startswith('decay'):
             current_block = None
+            skip_decay_channels = False
             parts = stripped.split()
-            if len(parts) >= 2 and parts[1] == '1000021':
-                # This is the gluino decay - replace it with our RPV decay
-                # Check if decay_chain specifies go > u d s
-                if hasattr(config.process, 'decay_chain') and config.process.decay_chain:
-                    decay_chain = config.process.decay_chain.lower()
-                    if 'go' in decay_chain and ('u' in decay_chain or 'd' in decay_chain or 's' in decay_chain):
-                        # Set gluino to decay 100% to u d s via RPV
-                        new_lines.append("DECAY  1000021  1.000000e+00  # gluino decay width\n")
-                        new_lines.append("   1.000000e+00   3   2   1   3  # BR=1.0 go -> u d s (RPV UDD)\n")
-                        gluino_decay_updated = True
-                        # Skip the original decay line and any following decay channels
-                        continue
+            if len(parts) >= 2:
+                pdg = parts[1]
+                if pdg in decay_updates:
+                    # Replace this decay with our custom one
+                    decay_cfg = decay_updates[pdg]
+                    new_lines.append(f"DECAY  {pdg}  {decay_cfg.width:.6e}  # custom decay\n")
+                    for channel in decay_cfg.channels:
+                        products_str = '  '.join(str(p) for p in channel.products)
+                        n_products = len(channel.products)
+                        new_lines.append(f"   {channel.br:.6e}   {n_products}   {products_str}  # custom channel\n")
+                    skip_decay_channels = True
+                    current_decay_pdg = pdg
+                    continue
             new_lines.append(line)
             continue
 
-        # Skip original gluino decay channels if we're replacing
-        if gluino_decay_updated and not stripped.startswith('decay') and not stripped.startswith('block'):
-            # Check if this looks like a decay channel line (starts with number)
+        # Skip original decay channels if we're replacing
+        if skip_decay_channels:
+            # Check if this is still part of the decay (number at start or comment)
+            if stripped.startswith('#'):
+                continue
             parts = stripped.split()
-            if parts and parts[0].replace('.', '').replace('-', '').replace('e', '').isdigit():
-                # This is a decay channel for the previous DECAY - skip if we replaced gluino
+            if parts and parts[0].replace('.', '').replace('-', '').replace('e', '').replace('+', '').isdigit():
                 continue
             else:
-                gluino_decay_updated = False  # Reset flag when we hit non-decay content
-
-        # Skip comment-only lines in decay sections we're replacing
-        if stripped.startswith('#') and gluino_decay_updated:
-            continue
+                skip_decay_channels = False
 
         # Try to patch MASS block
         if current_block == 'MASS' and mass_updates:

@@ -72,6 +72,21 @@ class ParticleConfig(BaseModel):
         return v
 
 
+class DecayChannel(BaseModel):
+    """A single decay channel with branching ratio and products"""
+
+    br: float = Field(description="Branching ratio (0-1)")
+    products: List[int] = Field(description="List of PDG IDs for decay products")
+
+
+class DecayConfig(BaseModel):
+    """Decay configuration for a particle"""
+
+    pdg_id: int = Field(description="PDG ID of the decaying particle")
+    width: float = Field(default=1.0, description="Total width in GeV")
+    channels: List[DecayChannel] = Field(description="List of decay channels")
+
+
 class MatchingConfig(BaseModel):
     """MLM/CKKW-L jet matching configuration"""
 
@@ -140,10 +155,15 @@ class PipelineConfig(BaseModel):
     collider: ColliderConfig = Field(default_factory=ColliderConfig)
     process: ProcessConfig
     particles: List[ParticleConfig] = Field(default_factory=list)
+    decays: List[DecayConfig] = Field(default_factory=list, description="Custom decay configurations")
     matching: MatchingConfig = Field(default_factory=MatchingConfig)
     generation: GenerationConfig = Field(default_factory=GenerationConfig)
     jets: JetConfig = Field(default_factory=JetConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
+
+    # Custom card paths (bypass template generation)
+    custom_param_card: Optional[str] = Field(default=None, description="Path to custom param_card.dat")
+    custom_run_card: Optional[str] = Field(default=None, description="Path to custom run_card.dat")
 
     @classmethod
     def from_yaml(cls, filepath: str) -> "PipelineConfig":
