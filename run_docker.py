@@ -160,7 +160,8 @@ def patch_param_card(param_card_path: Path, config):
     in the config rather than replacing the whole file.
     """
     with open(param_card_path) as f:
-        lines = f.readlines()
+        content = f.read()
+        lines = content.splitlines(keepends=True)
 
     # Build update maps: {block_name: {pdg_id_or_index: new_value}}
     mass_updates = {}
@@ -176,6 +177,8 @@ def patch_param_card(param_card_path: Path, config):
 
     current_block = None
     new_lines = []
+    gluino_decay_updated = False
+
     for line in lines:
         stripped = line.strip().lower()
 
@@ -185,11 +188,37 @@ def patch_param_card(param_card_path: Path, config):
             new_lines.append(line)
             continue
 
-        # Skip decay/comment lines for block tracking
-        if stripped.startswith('decay') or stripped.startswith('#'):
-            if stripped.startswith('decay'):
-                current_block = None
+        # Handle DECAY lines - check for gluino decay
+        if stripped.startswith('decay'):
+            current_block = None
+            parts = stripped.split()
+            if len(parts) >= 2 and parts[1] == '1000021':
+                # This is the gluino decay - replace it with our RPV decay
+                # Check if decay_chain specifies go > u d s
+                if hasattr(config.process, 'decay_chain') and config.process.decay_chain:
+                    decay_chain = config.process.decay_chain.lower()
+                    if 'go' in decay_chain and ('u' in decay_chain or 'd' in decay_chain or 's' in decay_chain):
+                        # Set gluino to decay 100% to u d s via RPV
+                        new_lines.append("DECAY  1000021  1.000000e+00  # gluino decay width\n")
+                        new_lines.append("   1.000000e+00   3   2   1   3  # BR=1.0 go -> u d s (RPV UDD)\n")
+                        gluino_decay_updated = True
+                        # Skip the original decay line and any following decay channels
+                        continue
             new_lines.append(line)
+            continue
+
+        # Skip original gluino decay channels if we're replacing
+        if gluino_decay_updated and not stripped.startswith('decay') and not stripped.startswith('block'):
+            # Check if this looks like a decay channel line (starts with number)
+            parts = stripped.split()
+            if parts and parts[0].replace('.', '').replace('-', '').replace('e', '').isdigit():
+                # This is a decay channel for the previous DECAY - skip if we replaced gluino
+                continue
+            else:
+                gluino_decay_updated = False  # Reset flag when we hit non-decay content
+
+        # Skip comment-only lines in decay sections we're replacing
+        if stripped.startswith('#') and gluino_decay_updated:
             continue
 
         # Try to patch MASS block
