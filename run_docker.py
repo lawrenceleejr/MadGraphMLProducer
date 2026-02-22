@@ -239,16 +239,19 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
     env = os.environ.copy()
     env["OMP_NUM_THREADS"] = str(cores)
 
-    result = subprocess.run(cmd, cwd=mg5_output, env=env, capture_output=True, text=True)
-
-    # Always show output for debugging
-    if verbose or result.returncode != 0:
-        if result.stdout:
-            print("--- MadGraph stdout ---")
-            print(result.stdout[-4000:])
-        if result.stderr:
-            print("--- MadGraph stderr ---")
-            print(result.stderr[-2000:])
+    # Stream output in real-time for visibility
+    if verbose:
+        print("  --- MadGraph process generation output ---")
+        result = subprocess.run(cmd, cwd=mg5_output, env=env)
+    else:
+        result = subprocess.run(cmd, cwd=mg5_output, env=env, capture_output=True, text=True)
+        if result.returncode != 0:
+            if result.stdout:
+                print("--- MadGraph stdout ---")
+                print(result.stdout[-4000:])
+            if result.stderr:
+                print("--- MadGraph stderr ---")
+                print(result.stderr[-2000:])
 
     if result.returncode != 0:
         print("MadGraph process generation failed!")
@@ -258,10 +261,11 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
     process_dir = mg5_output / process_name
     if not process_dir.exists():
         # Show output to help debug
-        print("--- MadGraph stdout (last 4000 chars) ---")
-        print(result.stdout[-4000:] if result.stdout else "(empty)")
-        print("--- MadGraph stderr (last 2000 chars) ---")
-        print(result.stderr[-2000:] if result.stderr else "(empty)")
+        if not verbose and hasattr(result, 'stdout'):
+            print("--- MadGraph stdout (last 4000 chars) ---")
+            print(result.stdout[-4000:] if result.stdout else "(empty)")
+            print("--- MadGraph stderr (last 2000 chars) ---")
+            print(result.stderr[-2000:] if result.stderr else "(empty)")
         print(f"Error: Process directory not created: {process_dir}")
         sys.exit(1)
 
@@ -287,7 +291,8 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
 
     # Step 3: Run the launch
     print(f"  Step 3: Launching event generation...")
-    print(f"  This may take several minutes...")
+    if not verbose:
+        print(f"  This may take several minutes... (use --verbose for live output)")
 
     # Use generate_events -f directly instead of mg5_aMC interactive launch.
     # This is more reliable as it skips interactive prompts.
@@ -297,10 +302,14 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
         # Direct invocation with -f (force, no prompts).
         # Shower is configured via parton_shower in run_card.dat.
         cmd = [str(generate_events_bin), "-f"]
-        result = subprocess.run(
-            cmd, cwd=process_dir, env=env,
-            capture_output=True, text=True
-        )
+        if verbose:
+            print("  --- MadGraph event generation output ---")
+            result = subprocess.run(cmd, cwd=process_dir, env=env)
+        else:
+            result = subprocess.run(
+                cmd, cwd=process_dir, env=env,
+                capture_output=True, text=True
+            )
     else:
         # Fallback: mg5_aMC launch script
         mg5_script = work_dir / "mg5_launch.txt"
@@ -313,18 +322,23 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
         with open(mg5_script, "w") as f:
             f.write("\n".join(script_lines))
         cmd = ["mg5_aMC", str(mg5_script)]
-        result = subprocess.run(
-            cmd, cwd=mg5_output, env=env,
-            capture_output=True, text=True
-        )
+        if verbose:
+            print("  --- MadGraph event generation output ---")
+            result = subprocess.run(cmd, cwd=mg5_output, env=env)
+        else:
+            result = subprocess.run(
+                cmd, cwd=mg5_output, env=env,
+                capture_output=True, text=True
+            )
 
-    # Always show last portion of output for visibility
-    if result.stdout:
-        print("\n  --- MadGraph output (last 3000 chars) ---")
-        print(result.stdout[-3000:])
-    if result.stderr:
-        print("\n  --- MadGraph stderr ---")
-        print(result.stderr[-1000:])
+    # Show output summary (only if not verbose, since verbose already showed it)
+    if not verbose:
+        if hasattr(result, 'stdout') and result.stdout:
+            print("\n  --- MadGraph output (last 3000 chars) ---")
+            print(result.stdout[-3000:])
+        if hasattr(result, 'stderr') and result.stderr:
+            print("\n  --- MadGraph stderr ---")
+            print(result.stderr[-1000:])
 
     if result.returncode != 0:
         print("MadGraph5 failed with non-zero exit code!")
