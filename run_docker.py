@@ -547,6 +547,14 @@ def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
     n_events = len(events_list)
     print(f"  Found {n_events} events")
 
+    # Debug: dump first 2 events
+    for dbg_i, dbg_evt in enumerate(events_list[:2]):
+        print(f"\n  --- Raw LHE Event {dbg_i} ---")
+        final = [p for p in dbg_evt.particles if p.status == 1]
+        intermediate = [p for p in dbg_evt.particles if p.status == 2]
+        print(f"  Intermediate (status=2): {[(p.id, f'E={p.e:.1f}') for p in intermediate]}")
+        print(f"  Final state  (status=1): {[(p.id, f'pt={np.sqrt(p.px**2+p.py**2):.1f}', f'E={p.e:.1f}') for p in final]}")
+
     # Set up dimensions
     max_jets = config.output.max_jets_per_event
     max_particles = config.output.max_particles_per_jet

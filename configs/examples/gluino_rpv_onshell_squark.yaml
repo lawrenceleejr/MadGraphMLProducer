@@ -9,9 +9,11 @@ collider:
 
 process:
   model: "RPVMSSM_UFO"
-  # Generate gluino pairs - decays handled via DECAY blocks in param_card
-  # On-shell cascade: go > u ul~ (gluino to u + anti-up-squark), ul~ > d s~ (squark RPV decay)
+  # Same 3-body decay as off-shell, but squarks NOT excluded.
+  # With ul at 800 GeV (< 1000 GeV gluino), MadGraph automatically produces
+  # the on-shell squark resonance in go > u d s diagrams.
   process_string: "p p > go go"
+  decay_chain: "(go > u d s)"
   extra_partons: 0
 
 particles:
