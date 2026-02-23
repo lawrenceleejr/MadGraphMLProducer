@@ -111,9 +111,9 @@ def main():
     output_path = Path(args.output)
     convert_to_hdf5(lhe_file, output_path, config)
 
-    # Optionally copy LHE file
-    if args.keep_lhe and lhe_file and lhe_file.exists():
-        lhe_dest = output_path.parent / "events.lhe.gz"
+    # Always copy LHE file to output directory
+    if lhe_file and lhe_file.exists():
+        lhe_dest = output_path.with_suffix(".lhe.gz")
         shutil.copy(lhe_file, lhe_dest)
         print(f"LHE file saved to: {lhe_dest}")
 
