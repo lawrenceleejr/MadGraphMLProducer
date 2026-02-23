@@ -387,14 +387,30 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
         # Direct invocation with -f (force, no prompts).
         # Shower is configured via parton_shower in run_card.dat.
         cmd = [str(generate_events_bin), "-f"]
+        print(f"  Running: {' '.join(cmd)}")
         if verbose:
             print("  --- MadGraph event generation output ---")
-            result = subprocess.run(cmd, cwd=process_dir, env=env)
+            # Use Popen to stream output while also capturing it
+            process = subprocess.Popen(
+                cmd, cwd=process_dir, env=env,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1
+            )
+            output_lines = []
+            for line in process.stdout:
+                print(line, end='')
+                output_lines.append(line)
+            process.wait()
+            result_returncode = process.returncode
+            result_stdout = ''.join(output_lines)
         else:
             result = subprocess.run(
                 cmd, cwd=process_dir, env=env,
                 capture_output=True, text=True
             )
+            result_returncode = result.returncode
+            result_stdout = result.stdout
+            result_stderr = getattr(result, 'stderr', '')
     else:
         # Fallback: mg5_aMC launch script
         mg5_script = work_dir / "mg5_launch.txt"
@@ -407,25 +423,42 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
         with open(mg5_script, "w") as f:
             f.write("\n".join(script_lines))
         cmd = ["mg5_aMC", str(mg5_script)]
+        print(f"  Running: {' '.join(cmd)}")
         if verbose:
             print("  --- MadGraph event generation output ---")
-            result = subprocess.run(cmd, cwd=mg5_output, env=env)
+            process = subprocess.Popen(
+                cmd, cwd=mg5_output, env=env,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1
+            )
+            output_lines = []
+            for line in process.stdout:
+                print(line, end='')
+                output_lines.append(line)
+            process.wait()
+            result_returncode = process.returncode
+            result_stdout = ''.join(output_lines)
         else:
             result = subprocess.run(
                 cmd, cwd=mg5_output, env=env,
                 capture_output=True, text=True
             )
+            result_returncode = result.returncode
+            result_stdout = result.stdout
+            result_stderr = getattr(result, 'stderr', '')
+
+    print(f"  MadGraph return code: {result_returncode}")
 
     # Show output summary (only if not verbose, since verbose already showed it)
     if not verbose:
-        if hasattr(result, 'stdout') and result.stdout:
+        if result_stdout:
             print("\n  --- MadGraph output (last 3000 chars) ---")
-            print(result.stdout[-3000:])
-        if hasattr(result, 'stderr') and result.stderr:
+            print(result_stdout[-3000:])
+        if result_stderr:
             print("\n  --- MadGraph stderr ---")
-            print(result.stderr[-1000:])
+            print(result_stderr[-1000:])
 
-    if result.returncode != 0:
+    if result_returncode != 0:
         print("MadGraph5 failed with non-zero exit code!")
         sys.exit(1)
 
