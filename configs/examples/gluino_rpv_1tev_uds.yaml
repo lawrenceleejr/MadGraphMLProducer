@@ -9,9 +9,9 @@ collider:
 
 process:
   model: "RPVMSSM_UFO"
-  process_string: "p p > go go"
+  process_string: "g g > go go"
   decay_chain: "(go > u d s)"
-  extra_partons: 1
+  extra_partons: 0
   excluded_particles:
     - "ul"
     - "ur"
@@ -33,12 +33,7 @@ particles:
     width: null
 
 matching:
-  enabled: true
-  scheme: "mlm"
-  xqcut: 30.0
-  qcut: 40.0
-  max_jet_flavor: 5
-  kt_scheme: 1
+  enabled: false
 
 generation:
   num_events: 100
