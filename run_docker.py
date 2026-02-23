@@ -429,44 +429,44 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
         print("MadGraph5 failed with non-zero exit code!")
         sys.exit(1)
 
-    # Find output files - MadGraph creates process_name/Events/run_01/
+    # Find output files - MadGraph creates Events/run_01/unweighted_events.lhe.gz
+    # Never pick up intermediate subprocess files from SubProcesses/
     lhe_file = None
 
-    search_paths = [
-        process_dir,
-        mg5_output / process_name,
-    ]
+    def find_lhe(base: Path):
+        """Search for final combined LHE file, excluding SubProcesses directory."""
+        # Most specific: standard MadGraph output location
+        for pattern in [
+            "Events/run_*/unweighted_events.lhe.gz",
+            "Events/run_*/unweighted_events.lhe",
+            "Events/run_*/*.lhe.gz",
+            "Events/run_*/*.lhe",
+        ]:
+            candidates = [p for p in base.glob(pattern)
+                          if "SubProcesses" not in str(p)]
+            if candidates:
+                return sorted(candidates)[-1]  # latest run
+        return None
 
-    for search_path in search_paths:
-        if not search_path.exists():
-            continue
-
-        lhe_candidates = list(search_path.glob("**/unweighted_events.lhe.gz"))
-        if not lhe_candidates:
-            lhe_candidates = list(search_path.glob("**/events.lhe.gz"))
-        if not lhe_candidates:
-            lhe_candidates = list(search_path.glob("**/*.lhe.gz"))
-        if not lhe_candidates:
-            lhe_candidates = list(search_path.glob("**/*.lhe"))
-
-        if lhe_candidates:
-            lhe_file = lhe_candidates[0]
-            break
+    lhe_file = find_lhe(process_dir)
+    if not lhe_file and (mg5_output / process_name) != process_dir:
+        lhe_file = find_lhe(mg5_output / process_name)
 
     if not lhe_file:
         print("Error: No LHE file generated!")
-        print(f"Searching in: {search_paths}")
-
-        # List all files for debugging
-        for search_path in search_paths:
-            if search_path.exists():
-                print(f"\nContents of {search_path}:")
-                for f in search_path.rglob("*"):
-                    if f.is_file():
-                        print(f"  {f}")
-
-        # Also check if MadGraph created output elsewhere
-        print(f"\nAll directories in {work_dir}:")
+        print(f"Looking in Events/ under: {process_dir}")
+        events_dir = process_dir / "Events"
+        if events_dir.exists():
+            print(f"\nContents of {events_dir}:")
+            for f in events_dir.rglob("*"):
+                if f.is_file():
+                    print(f"  {f}")
+        else:
+            print("  Events/ directory does not exist - event generation may have failed")
+            # Show top-level process dir contents for debugging
+            print(f"\nContents of {process_dir}:")
+            for f in process_dir.iterdir():
+                print(f"  {f}")
         for item in work_dir.iterdir():
             print(f"  {item}")
 
