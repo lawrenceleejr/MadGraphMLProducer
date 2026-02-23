@@ -1,5 +1,5 @@
 name: "gluino_rpv_1tev_uds"
-description: "RPV gluino pair production, 1 TeV, go > uds decay, 1 extra parton"
+description: "RPV gluino pair production, 1 TeV, go > uds decay, 1 extra parton, no shower"
 
 collider:
   beam1_pdg: 2212
@@ -9,9 +9,9 @@ collider:
 
 process:
   model: "RPVMSSM_UFO"
-  process_string: "g g > go go"
+  process_string: "p p > go go"
   decay_chain: "(go > u d s)"
-  extra_partons: 0
+  extra_partons: 1
   excluded_particles:
     - "ul"
     - "ur"
