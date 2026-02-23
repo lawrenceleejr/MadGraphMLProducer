@@ -14,7 +14,7 @@ process:
   # the on-shell squark resonance in go > u d s diagrams.
   process_string: "p p > go go"
   decay_chain: "(go > u d s)"
-  extra_partons: 0
+  extra_partons: 1
 
 particles:
   - pdg_id: 1000021
