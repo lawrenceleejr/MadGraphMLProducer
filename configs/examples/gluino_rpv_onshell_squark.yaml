@@ -9,8 +9,9 @@ collider:
 
 process:
   model: "RPVMSSM_UFO"
+  # Generate gluino pairs - decays handled via DECAY blocks in param_card
+  # On-shell cascade: go > u ul~ (gluino to u + anti-up-squark), ul~ > d s~ (squark RPV decay)
   process_string: "p p > go go"
-  decay_chain: "(go > u ul), (ul > d s)"
   extra_partons: 0
 
 particles:
@@ -24,17 +25,21 @@ particles:
     width: null
 
 # Custom decays for on-shell squark topology
+# Color/charge conservation: go (color 8) -> u (color 3) + ul~ (color 3bar)
+# Then ul~ (anti-squark) -> dbar + sbar via RPV, or we define ul -> d + s and MG conjugates
 decays:
-  - pdg_id: 1000021  # gluino
+  - pdg_id: 1000021  # gluino (Majorana fermion)
+    width: 1.0
+    channels:
+      - br: 0.5
+        products: [2, -1000002]  # u + ul~ (u-quark + anti-up-squark)
+      - br: 0.5
+        products: [-2, 1000002]  # ubar + ul (anti-u + up-squark)
+  - pdg_id: 1000002  # up-squark-left (ul -> d s via RPV lambda'')
     width: 1.0
     channels:
       - br: 1.0
-        products: [2, 1000002]  # u ul (u quark + up-squark-left)
-  - pdg_id: 1000002  # up-squark-left
-    width: 1.0
-    channels:
-      - br: 1.0
-        products: [1, 3]  # d s (down + strange)
+        products: [1, 3]  # d + s
 
 matching:
   enabled: false

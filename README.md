@@ -57,15 +57,43 @@ That's it! The `./run` command handles everything automatically.
 | `--keep-lhe` | Keep LHE file | off |
 | `--rebuild` | Force rebuild Docker image | off |
 
-## Default Physics Process
+## RPV Gluino Samples
 
-The default configuration generates **RPV SUSY gluino pair production**:
+Two ready-to-use configurations for R-parity violating gluino pair production:
 
-- **Process**: pp → g̃g̃ with g̃ → jjj (R-parity violating decay)
-- **√s**: 13.6 TeV (LHC Run 3)
+### Sample 1: Direct RPV Decay (Off-shell squarks)
+
+Gluino decays directly to 3 quarks via RPV coupling: g̃ → uds
+
+```bash
+# Generate 10k events (copy-paste this single command)
+./run -c configs/examples/gluino_rpv_1tev_uds.yaml -n 10000 --shower off -o gluino_offshell_10k.h5
+```
+
+- **Topology**: pp → g̃g̃, g̃ → u d s (6 jets per event)
 - **Gluino mass**: 1 TeV
-- **Jet matching**: MLM with up to 2 additional partons
-- **Expected jets**: 6 signal jets per event (from gluino decays) + ISR/FSR
+- **√s**: 13.6 TeV (LHC Run 3)
+
+### Sample 2: On-shell Squark Cascade
+
+Gluino decays through an on-shell squark: g̃ → u ũ*, ũ* → d̄ s̄
+
+```bash
+# Generate 10k events (copy-paste this single command)
+./run -c configs/examples/gluino_rpv_onshell_squark.yaml -n 10000 --shower off -o gluino_onshell_10k.h5
+```
+
+- **Topology**: pp → g̃g̃, g̃ → u ũ*, ũ* → d s (6 jets per event, 4 from RPV vertex)
+- **Gluino mass**: 1 TeV
+- **Squark mass**: 800 GeV
+- **√s**: 13.6 TeV (LHC Run 3)
+
+### Quick Comparison
+
+| Sample | Decay | Jets | Intermediate |
+|--------|-------|------|--------------|
+| Off-shell | g̃ → uds | 6 (3+3) | Virtual squark |
+| On-shell | g̃ → u ũ* → u d s | 6 (3+3) | Real 800 GeV squark |
 
 ## Output Format
 
@@ -157,7 +185,8 @@ MadGraphMLProducer/
 ├── Dockerfile             # All-in-one Docker image
 ├── configs/
 │   └── examples/
-│       └── gluino_rpv_1tev.yaml
+│       ├── gluino_rpv_1tev_uds.yaml      # Direct RPV (off-shell squark)
+│       └── gluino_rpv_onshell_squark.yaml # On-shell squark cascade
 ├── cards/templates/       # MadGraph/Pythia8 card templates
 └── src/madgraph_ml_producer/
     ├── config.py          # Pydantic configuration
