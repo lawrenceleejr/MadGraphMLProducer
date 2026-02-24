@@ -524,7 +524,7 @@ def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
     """Process LHE file to HDF5 with SPANet and PasswdABC compatible formats.
 
     Creates a unified HDF5 file with multiple format groups:
-    - /INPUTS/Jets/: SPANet format (MASK, pt, eta, phi, mass, btag)
+    - /INPUTS/Source/: SPANet format (MASK, pt, eta, phi, mass, btag)
     - /TARGETS/: SPANet assignment targets for reconstruction
     - /source/: PasswdABC format (e, pt, eta, phi per particle)
     - /EventVars/: PasswdABC event variables (normweight)
@@ -673,7 +673,7 @@ def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
 
     with h5py.File(output_path, "w") as f:
         # SPANet format
-        inputs_jets = f.create_group("INPUTS/Jets")
+        inputs_jets = f.create_group("INPUTS/Source")
         inputs_jets.create_dataset("MASK", data=all_jet_mask, compression=compression)
         inputs_jets.create_dataset("pt", data=all_spanet_pt, compression=compression)
         inputs_jets.create_dataset("eta", data=all_spanet_eta, compression=compression)
@@ -723,7 +723,7 @@ def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
         f.attrs["jet_radius"] = 0.0
         f.attrs["process_string"] = config.process.process_string
         f.attrs["model"] = config.process.model
-        f.attrs["spanet_inputs"] = ["Jets"]
+        f.attrs["spanet_inputs"] = ["Source"]
         f.attrs["spanet_jet_features"] = ["pt", "eta", "phi", "mass", "btag"]
         if is_rpv_gluino:
             f.attrs["spanet_targets"] = ["g1", "g2"]
@@ -731,7 +731,7 @@ def process_lhe_to_hdf5(lhe_file: Path, output_path: Path, config):
         f.attrs["passwdabc_source_features"] = ["e", "pt", "eta", "phi"]
         f.attrs["passwdabc_event_vars"] = ["normweight"]
 
-    print(f"  Output formats: SPANet (/INPUTS/Jets/), PasswdABC (/source/), Legacy")
+    print(f"  Output formats: SPANet (/INPUTS/Source/), PasswdABC (/source/), Legacy")
 
 
 if __name__ == "__main__":
