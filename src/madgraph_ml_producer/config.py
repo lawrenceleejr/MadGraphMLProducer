@@ -114,7 +114,7 @@ class GenerationConfig(BaseModel):
     drjj_min: float = Field(default=0.0, ge=0, description="Min deltaR(j,j) cut")
     ptl_min: float = Field(default=0.0, ge=0, description="Min lepton pT cut in GeV")
     etal_max: float = Field(default=-1.0, description="Max lepton |eta| cut (-1=no cut)")
-    use_syst: bool = Field(default=True, description="Enable systematics weights")
+    use_syst: bool = Field(default=False, description="Enable systematics weights (requires PDF downloads)")
 
 
 class JetConfig(BaseModel):
