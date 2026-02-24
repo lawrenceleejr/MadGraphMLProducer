@@ -35,8 +35,8 @@ generate {{ config.process.process_string }}{% if config.process.decay_chain %},
 generate {{ config.process.process_string }}{% if config.process.decay_chain %}, {{ config.process.decay_chain }}{% endif %} @0
 {% endif %}
 
-{% if config.process.extra_partons > 0 and config.matching.enabled %}
-# Add processes with extra partons for MLM matching
+{% if config.process.extra_partons > 0 %}
+# Add processes with extra partons (ISR/FSR at matrix element level)
 {% for i in range(1, config.process.extra_partons + 1) %}
 {% if config.process.excluded_particles %}
 add process {{ config.process.process_string }} {% for _ in range(i) %}j {% endfor %}{% if config.process.decay_chain %}, {{ config.process.decay_chain }}{% endif %} $ {{ config.process.excluded_particles | join(' ') }} @{{ i }}
