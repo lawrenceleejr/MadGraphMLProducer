@@ -113,9 +113,16 @@ def main():
 
     # Always copy LHE file to output directory
     if lhe_file and lhe_file.exists():
-        lhe_dest = output_path.with_suffix(".lhe.gz")
+        # Preserve the correct extension (.lhe or .lhe.gz)
+        if lhe_file.suffix == ".gz":
+            lhe_dest = output_path.with_suffix(".lhe.gz")
+        else:
+            lhe_dest = output_path.with_suffix(".lhe")
+        print(f"Copying LHE: {lhe_file} -> {lhe_dest}")
         shutil.copy(lhe_file, lhe_dest)
         print(f"LHE file saved to: {lhe_dest}")
+    else:
+        print(f"Warning: LHE file not found or doesn't exist: {lhe_file}")
 
     print("\n" + "=" * 60)
     print(f"SUCCESS!")
