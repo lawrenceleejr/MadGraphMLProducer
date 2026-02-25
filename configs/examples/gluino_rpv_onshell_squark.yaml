@@ -13,9 +13,11 @@ process:
   # decay chain. So we exclude all squarks from production (same as off-shell)
   # but with ul at 800 GeV, the (go > u d s) decay amplitude still includes
   # the on-shell ul propagator.
+  # NOTE: extra_partons=0 because on-shell squark + extra parton causes
+  # MadGraph colorflow errors with the RPV epsilon tensor vertex.
   process_string: "p p > go go"
   decay_chain: "(go > u d s)"
-  extra_partons: 1
+  extra_partons: 0
   excluded_particles:
     # Exclude all squarks from production diagrams
     - "ul"
