@@ -495,6 +495,38 @@ def run_madgraph_pythia(cards_dir: Path, work_dir: Path, config,
     if not lhe_file:
         print("Error: No LHE file generated!")
         print(f"Looking in Events/ under: {process_dir}")
+
+        # Dump the debug log if it exists
+        debug_logs = list(process_dir.glob("run_*_debug.log")) + list(process_dir.glob("*debug*.log"))
+        for log_file in debug_logs:
+            print(f"\n  === {log_file.name} (last 5000 chars) ===")
+            try:
+                content = log_file.read_text()
+                print(content[-5000:])
+            except Exception as e:
+                print(f"  (Could not read: {e})")
+
+        # Check for failed subprocess grid points
+        subproc_dir = process_dir / "SubProcesses"
+        if subproc_dir.exists():
+            for p_dir in sorted(subproc_dir.glob("P*")):
+                g_dirs = sorted(p_dir.glob("G*"))
+                if g_dirs:
+                    missing = [g.name for g in g_dirs if not (g / "results.dat").exists()]
+                    present = [g.name for g in g_dirs if (g / "results.dat").exists()]
+                    print(f"\n  Subprocess {p_dir.name}: {len(present)} ok, {len(missing)} missing results.dat")
+                    if missing:
+                        print(f"    Missing: {missing[:10]}{'...' if len(missing) > 10 else ''}")
+                        # Check for log files in failed grid points
+                        for m in missing[:3]:
+                            log = p_dir / m / "log.txt"
+                            if log.exists():
+                                print(f"\n    === {p_dir.name}/{m}/log.txt (last 2000 chars) ===")
+                                try:
+                                    print(log.read_text()[-2000:])
+                                except:
+                                    pass
+
         events_dir = process_dir / "Events"
         if events_dir.exists():
             print(f"\nContents of {events_dir}:")
