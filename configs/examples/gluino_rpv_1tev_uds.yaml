@@ -42,8 +42,8 @@ generation:
 jets:
   algorithm: "antikt"
   radius: 0.4
-  pt_min: 25.0
-  eta_max: 2.5
+  pt_min: 1.0      # Low cut to keep all partons
+  eta_max: 10.0    # High cut to keep all partons
 
 output:
   save_hdf5: true
