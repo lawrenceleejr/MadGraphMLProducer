@@ -9,12 +9,24 @@ collider:
 
 process:
   model: "RPVMSSM_UFO"
-  # Same 3-body decay as off-shell, but squarks NOT excluded.
-  # With ul at 800 GeV (< 1000 GeV gluino), MadGraph automatically produces
-  # the on-shell squark resonance in go > u d s diagrams.
+  # Use (go > u d s) decay chain with ul kept in diagrams (on-shell at 800 GeV).
+  # All OTHER squarks excluded to keep diagram count manageable.
   process_string: "p p > go go"
   decay_chain: "(go > u d s)"
   extra_partons: 1
+  excluded_particles:
+    # Exclude all squarks EXCEPT ul (1000002) which we want on-shell
+    - "ur"
+    - "dl"
+    - "dr"
+    - "cl"
+    - "cr"
+    - "sl"
+    - "sr"
+    - "b1"
+    - "b2"
+    - "t1"
+    - "t2"
 
 particles:
   - pdg_id: 1000021
