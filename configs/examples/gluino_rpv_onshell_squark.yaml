@@ -11,9 +11,11 @@ process:
   model: "RPVMSSM_UFO"
   # Use (go > u d s) decay chain with ul kept in diagrams (on-shell at 800 GeV).
   # All OTHER squarks excluded to keep diagram count manageable.
+  # extra_partons: 0 because the extra-gluon subprocess with on-shell squark
+  # propagators causes MadGraph integration failures (too many diagrams).
   process_string: "p p > go go"
   decay_chain: "(go > u d s)"
-  extra_partons: 1
+  extra_partons: 0
   excluded_particles:
     # Exclude all squarks EXCEPT ul (1000002) which we want on-shell
     - "ur"
