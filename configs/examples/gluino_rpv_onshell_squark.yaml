@@ -1,5 +1,5 @@
 name: "gluino_rpv_onshell_squark"
-description: "RPV gluino via on-shell squark: go > u ul, ul > d s"
+description: "RPV gluino via on-shell squark: go > u su4~, su4~ > d s"
 
 collider:
   beam1_pdg: 2212
@@ -9,64 +9,71 @@ collider:
 
 process:
   model: "RPVMSSM_UFO"
-  # Explicitly list the on-shell ul~ intermediate in the decay chain so MadGraph
-  # uses the decay-chain formalism (narrow width approximation) rather than
-  # computing the full 3-body amplitude go > u d s. Writing "(go > u d s)"
-  # causes MadGraph to ignore the on-shell squark. We use the anti-squark (ul~)
-  # because the RPV vertex has ul (Q=+2/3) -> d~ s~, so its charge conjugate
-  # is ul~ (Q=-2/3) -> d s. The UFO vertex is defined for go-u-ul~ fermion
-  # flow; go > u~ ul (the other Majorana channel) fails at WEIGHTED=1.
-  # ul is intentionally NOT excluded here so it can appear in the decay chain.
+  # IMPORTANT: In the RPVMSSM_UFO (af1_ufo from FeynRules), squarks use
+  # non-standard names su1..su6 / sd1..sd6 (NOT the MG5 defaults ul/ur/dl/dr).
+  # PDG code -> model name mapping for up-type squarks:
+  #   1000002 = su1  (couples to t quark via gluino — this is stop-like)
+  #   1000004 = su2  (couples to t quark via gluino)
+  #   1000006 = su3  (couples to c quark via gluino)
+  #   2000002 = su4  (couples to u quark via gluino) ← the one we want
+  #   2000004 = su5  (couples to u quark via gluino, but NO RPV d+s vertex)
+  #   2000006 = su6  (couples to c quark via gluino)
+  # Only su4 (PDG 2000002) has BOTH the go-u-su4~ vertex (QCD=1) AND the
+  # RPV vertex su4~+d~+s~ (QED=1, coupling LUDD1x1x2*Ru4x4).
+  # Charge conservation:
+  #   go (Q=0) -> u (Q=+2/3) + su4~ (Q=-2/3)  ✓
+  #   su4~ (Q=-2/3) -> d (Q=-1/3) + s (Q=-1/3)  ✓
+  # SLHA DECAY block for su4 (Q=+2/3) -> d~ (Q=+1/3) + s~ (Q=+1/3), ΔQ=0 ✓
+  # MadGraph infers su4~ -> d + s as the charge conjugate of su4 -> d~ s~.
+  # su4 is intentionally NOT excluded so it can appear in the decay chain.
   # NOTE: extra_partons=0 because on-shell squark + extra parton causes
   # MadGraph colorflow errors with the RPV epsilon tensor vertex.
   process_string: "p p > go go"
-  decay_chain: "(go > u ul~, ul~ > d s)"
+  decay_chain: "(go > u su4~, su4~ > d s)"
   extra_partons: 0
   excluded_particles:
-    # Exclude all squarks from production diagrams except ul (used in decay)
-    - "ur"
-    - "dl"
-    - "dr"
-    - "cl"
-    - "cr"
-    - "sl"
-    - "sr"
-    - "b1"
-    - "b2"
-    - "t1"
-    - "t2"
+    # Exclude all squarks from production diagrams except su4 (used in decay).
+    # Must use RPVMSSM_UFO model names (su1-su6, sd1-sd6), NOT the MG5 default
+    # names (ul, ur, etc.) which are unrecognized in this model.
+    - "su1"   # PDG 1000002: stop-like (go couples to t, not u) — must exclude
+    - "su2"   # PDG 1000004
+    - "su3"   # PDG 1000006
+    # su4 (PDG 2000002) intentionally omitted: needed as on-shell intermediate
+    - "su5"   # PDG 2000004: couples to u quark but has no RPV d+s vertex
+    - "su6"   # PDG 2000006
+    - "sd1"   # PDG 1000001
+    - "sd2"   # PDG 1000003
+    - "sd3"   # PDG 1000005
+    - "sd4"   # PDG 2000001
+    - "sd5"   # PDG 2000003
+    - "sd6"   # PDG 2000005
 
 particles:
   - pdg_id: 1000021
     name: "gluino"
     mass: 1000.0
     width: null
-  - pdg_id: 1000002
-    name: "ul"  # up-squark-left
+  - pdg_id: 2000002   # su4 in RPVMSSM_UFO = the up-quark-coupling squark
+    name: "su4"
     mass: 800.0  # configurable squark mass
     width: null
 
-# Custom decays for on-shell squark topology
-# Charge conservation checks:
-#   go (Q=0) -> u (Q=+2/3) + ul~ (Q=-2/3)  ✓
-#   go (Q=0) -> u~ (Q=-2/3) + ul (Q=+2/3)  ✓ (Majorana conjugate)
-#   ul (Q=+2/3) -> d~ (Q=+1/3) + s~ (Q=+1/3)  ✓  (SLHA block for particle)
-#   ul~ (Q=-2/3) -> d (Q=-1/3) + s (Q=-1/3)  ✓  (MadGraph charge-conjugate)
-# MadGraph uses the ul DECAY block to determine the width, and infers
-# ul~ -> d s as the charge conjugate for use in the process string.
+# Custom decays for on-shell squark topology.
+# In SLHA format, DECAY blocks define the particle decay; the charge conjugate
+# (anti-particle) decay is inferred automatically by MadGraph.
 decays:
   - pdg_id: 1000021  # gluino (Majorana fermion)
     width: 1.0
     channels:
       - br: 0.5
-        products: [2, -1000002]  # u + ul~ (u-quark + anti-up-squark)
+        products: [2, -2000002]   # u + su4~  (up-quark + anti-up-squark)
       - br: 0.5
-        products: [-2, 1000002]  # u~ + ul (anti-u-quark + up-squark)
-  - pdg_id: 1000002  # up-squark-left: ul -> d~ s~ via RPV lambda'' (charge-conserving)
+        products: [-2, 2000002]   # u~ + su4  (anti-up-quark + up-squark)
+  - pdg_id: 2000002  # su4: RPV decay su4 -> d~ + s~ via lambda''_{112} (charge-conserving)
     width: 1.0
     channels:
       - br: 1.0
-        products: [-1, -3]  # d~ + s~ (MG conjugate gives ul~ -> d s)
+        products: [-1, -3]   # d~ + s~  (MG conjugate gives su4~ -> d + s)
 
 matching:
   enabled: false
