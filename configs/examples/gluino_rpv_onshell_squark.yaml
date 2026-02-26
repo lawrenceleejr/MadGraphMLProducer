@@ -9,16 +9,18 @@ collider:
 
 process:
   model: "RPVMSSM_UFO"
-  # Explicitly list the on-shell ul intermediate in the decay chain so MadGraph
+  # Explicitly list the on-shell ul~ intermediate in the decay chain so MadGraph
   # uses the decay-chain formalism (narrow width approximation) rather than
-  # computing the full 3-body amplitude go > u~ d s. Writing "(go > u d s)"
-  # would cause MadGraph to ignore the on-shell squark, especially since the
-  # $ exclusion of "ul" would also suppress the squark propagator in the decay.
+  # computing the full 3-body amplitude go > u d s. Writing "(go > u d s)"
+  # causes MadGraph to ignore the on-shell squark. We use the anti-squark (ul~)
+  # because the RPV vertex has ul (Q=+2/3) -> d~ s~, so its charge conjugate
+  # is ul~ (Q=-2/3) -> d s. The UFO vertex is defined for go-u-ul~ fermion
+  # flow; go > u~ ul (the other Majorana channel) fails at WEIGHTED=1.
   # ul is intentionally NOT excluded here so it can appear in the decay chain.
   # NOTE: extra_partons=0 because on-shell squark + extra parton causes
   # MadGraph colorflow errors with the RPV epsilon tensor vertex.
   process_string: "p p > go go"
-  decay_chain: "(go > u~ ul, ul > d s)"
+  decay_chain: "(go > u ul~, ul~ > d s)"
   extra_partons: 0
   excluded_particles:
     # Exclude all squarks from production diagrams except ul (used in decay)
@@ -45,8 +47,13 @@ particles:
     width: null
 
 # Custom decays for on-shell squark topology
-# Color/charge conservation: go (color 8) -> u (color 3) + ul~ (color 3bar)
-# Then ul~ (anti-squark) -> dbar + sbar via RPV, or we define ul -> d + s and MG conjugates
+# Charge conservation checks:
+#   go (Q=0) -> u (Q=+2/3) + ul~ (Q=-2/3)  ✓
+#   go (Q=0) -> u~ (Q=-2/3) + ul (Q=+2/3)  ✓ (Majorana conjugate)
+#   ul (Q=+2/3) -> d~ (Q=+1/3) + s~ (Q=+1/3)  ✓  (SLHA block for particle)
+#   ul~ (Q=-2/3) -> d (Q=-1/3) + s (Q=-1/3)  ✓  (MadGraph charge-conjugate)
+# MadGraph uses the ul DECAY block to determine the width, and infers
+# ul~ -> d s as the charge conjugate for use in the process string.
 decays:
   - pdg_id: 1000021  # gluino (Majorana fermion)
     width: 1.0
@@ -54,12 +61,12 @@ decays:
       - br: 0.5
         products: [2, -1000002]  # u + ul~ (u-quark + anti-up-squark)
       - br: 0.5
-        products: [-2, 1000002]  # ubar + ul (anti-u + up-squark)
-  - pdg_id: 1000002  # up-squark-left (ul -> d s via RPV lambda'')
+        products: [-2, 1000002]  # u~ + ul (anti-u-quark + up-squark)
+  - pdg_id: 1000002  # up-squark-left: ul -> d~ s~ via RPV lambda'' (charge-conserving)
     width: 1.0
     channels:
       - br: 1.0
-        products: [1, 3]  # d + s
+        products: [-1, -3]  # d~ + s~ (MG conjugate gives ul~ -> d s)
 
 matching:
   enabled: false
