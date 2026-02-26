@@ -9,18 +9,19 @@ collider:
 
 process:
   model: "RPVMSSM_UFO"
-  # The $ exclusion only affects production diagrams (p p > go go j), NOT the
-  # decay chain. So we exclude all squarks from production (same as off-shell)
-  # but with ul at 800 GeV, the (go > u d s) decay amplitude still includes
-  # the on-shell ul propagator.
+  # Explicitly list the on-shell ul intermediate in the decay chain so MadGraph
+  # uses the decay-chain formalism (narrow width approximation) rather than
+  # computing the full 3-body amplitude go > u~ d s. Writing "(go > u d s)"
+  # would cause MadGraph to ignore the on-shell squark, especially since the
+  # $ exclusion of "ul" would also suppress the squark propagator in the decay.
+  # ul is intentionally NOT excluded here so it can appear in the decay chain.
   # NOTE: extra_partons=0 because on-shell squark + extra parton causes
   # MadGraph colorflow errors with the RPV epsilon tensor vertex.
   process_string: "p p > go go"
-  decay_chain: "(go > u d s)"
+  decay_chain: "(go > u~ ul, ul > d s)"
   extra_partons: 0
   excluded_particles:
-    # Exclude all squarks from production diagrams
-    - "ul"
+    # Exclude all squarks from production diagrams except ul (used in decay)
     - "ur"
     - "dl"
     - "dr"
