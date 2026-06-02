@@ -89,13 +89,17 @@
   0.0 = drjl      ! min deltaR(j,l)
 {% else %}
 # Standard generation cuts (no matching)
+# NOTE: drjj is wired to config.generation.drjj_min. For a fixed-order
+# multijet process (e.g. p p > j j j j j j) a non-zero drjj is REQUIRED to
+# regulate the collinear singularity (1/s_ij pole) and obtain a finite
+# cross section; the ptj cut alone only regulates the soft region.
   {{ "%.1f"|format(config.generation.ptj_min) }} = ptj       ! minimum pt for the jets
   0.0 = ptb       ! minimum pt for the b
   0.0 = ptl       ! minimum pt for leptons
   -1.0 = etaj     ! max rapidity for jets (-1 = no cut)
   -1.0 = etab     ! max rapidity for b
   -1.0 = etal     ! max rapidity for leptons
-  0.0 = drjj      ! min deltaR(j,j)
+  {{ "%.2f"|format(config.generation.drjj_min) }} = drjj      ! min deltaR(j,j)
   0.0 = drbb      ! min deltaR(b,b)
   0.0 = drll      ! min deltaR(l,l)
   0.0 = drjl      ! min deltaR(j,l)
