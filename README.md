@@ -104,19 +104,19 @@ field only adds MLM-matched jets, capped at 2).
 
 ### Maximum matrix-element multiplicity (fixed order)
 
-`p p > j j j j j j` — six hard jets from a single leading-order matrix element,
-plus the Pythia8 shower on top.
+`p p > j j j j` — four hard jets from a single leading-order matrix element,
+plus the Pythia8 shower on top. This is the **runnable default**; raise the jet
+count in `process_string` toward the MadGraph ceiling as compute allows.
 
 ```bash
-./run -c configs/examples/qcd_multijet_max.yaml -n 100 -o qcd_6jet.h5
+./run -c configs/examples/qcd_multijet_max.yaml -n 500 -o qcd_multijet_max.h5
 ```
 
 > ⚠️ The number of Feynman diagrams grows **factorially** with the jet count
-> (~4 → 220 → 34,000 going from 2 → 4 → 6 jets), so generation is slow and
-> RAM-hungry. **Start with `p p > j j j j` (4 jets)** to confirm the pipeline
-> runs, then raise the count one jet at a time, and keep `num_events` small.
-> To push beyond 6, use gluons only (`p p > g g g g g g g`) — far fewer
-> subprocesses for a given budget. Edit `process_string` to change the count.
+> (~4 → 220 → 34,000 going from 2 → 4 → 6 jets), so each extra jet costs far
+> more CPU/RAM. To push higher, edit `process_string` (e.g. `p p > j j j j j`)
+> and keep `num_events` small. Beyond ~6 jets, use gluons only
+> (`p p > g g g g g g g QED=0`) — far fewer subprocesses for a given budget.
 
 Both a `ptj` cut (soft regulator) **and** a `drjj` cut (collinear regulator)
 are required for a finite cross section at fixed order; the config sets both.
@@ -133,7 +133,7 @@ consistently-described jet-multiplicity tail with no double counting.
 
 | Config | Approach | ME jets | Cost | Use when |
 |--------|----------|---------|------|----------|
-| `qcd_multijet_max` | Fixed-order ME | 6 (tunable) | Very high | You need the highest hard-parton multiplicity |
+| `qcd_multijet_max` | Fixed-order ME | 4 (tunable to 6+) | High, scales with N | You need the highest hard-parton multiplicity |
 | `qcd_multijet_matched` | MLM merge + shower | 2,3,4 + shower | Moderate | You need a large, realistic inclusive sample |
 
 ## Output Format

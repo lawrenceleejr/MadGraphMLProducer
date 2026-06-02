@@ -1,42 +1,38 @@
 # ============================================================================
-# Maximum-multiplicity QCD multijet production at LHC Run 3 (13.6 TeV)
+# High-multiplicity QCD multijet production at LHC Run 3 (13.6 TeV)
 # ============================================================================
-# Goal: generate QCD events with as many hard jets as MadGraph can handle at
-# leading order (fixed-order matrix element).
+# Goal: generate pure-QCD events with as many hard jets as you can afford.
+# The final-state multiplicity is set DIRECTLY in `process_string` below.
+# It is NOT limited by `extra_partons` (that field only adds MLM-matched jets
+# and is capped at 2); putting the jets in the process string is how you push
+# the matrix-element multiplicity higher.
 #
-# The final-state multiplicity is set DIRECTLY in `process_string` below
-# ("p p > j j j j j j" = 6 hard jets). It is NOT limited by `extra_partons`
-# (that field only adds MLM-matched jets and is capped at 2); putting the jets
-# in the process string is how you push the matrix-element multiplicity higher.
+# DEFAULT = 4 hard jets ("p p > j j j j"), which runs out of the box. Raise the
+# jet count toward the ceiling as your compute budget allows (see ladder below).
 #
 # ----------------------------------------------------------------------------
-# !! READ THIS BEFORE RUNNING !!
+# THE COST GROWS ~FACTORIALLY WITH THE JET COUNT
 # ----------------------------------------------------------------------------
-# The number of Feynman diagrams (and the CPU/RAM cost) grows ~factorially with
-# the number of final-state partons. Approximate pure-gluon diagram counts:
+# Approximate pure-gluon Feynman-diagram counts (full j = g,u,d,s,... multiplies
+# this further by the number of quark-flavor subprocesses):
 #
 #     p p > j j         (2 jets)  ~      4   diagrams   trivial
 #     p p > j j j       (3 jets)  ~     25              seconds
-#     p p > j j j j     (4 jets)  ~    220              minutes
+#     p p > j j j j     (4 jets)  ~    220              minutes      <-- DEFAULT
 #     p p > j j j j j   (5 jets)  ~  2,485              ~hour(s)
 #     p p > j j j j j j (6 jets)  ~ 34,300              hours, lots of RAM
 #     p p > 7 jets               ~560,000              HPC only
 #     p p > 8 jets               ~  10 million          effectively intractable
 #
-# The full `j = g u c d s ...` definition multiplies this by the number of
-# quark-flavor subprocesses, so 6 light jets is already at the practical edge
-# of standard MG5_aMC. Recommendations:
-#   * START SMALL: drop to "p p > j j j j" to confirm the pipeline runs, then
-#     raise the multiplicity one jet at a time.
-#   * Keep `num_events` low (this file uses 100) -- unweighting a steeply
-#     falling, high-dimensional phase space is slow.
-#   * To push the multiplicity even higher, use gluons only:
-#       process_string: "p p > g g g g g g g"   # far fewer subprocesses
-#     (less realistic flavor content, but reaches higher N for a given budget).
+# To go as high as possible:
+#   * Raise the jet count one at a time and keep `num_events` small.
+#   * Use gluons only to reach higher N for a given budget (far fewer
+#     subprocesses, less realistic flavor content):
+#       process_string: "p p > g g g g g g g QED=0"
 # ----------------------------------------------------------------------------
 
 name: "qcd_multijet_max"
-description: "Fixed-order QCD 6-jet production (pp -> 6j), maximum ME multiplicity, 13.6 TeV"
+description: "High-multiplicity QCD multijet (pp -> 4j default, tunable), 13.6 TeV"
 
 collider:
   beam1_pdg: 2212
@@ -46,12 +42,12 @@ collider:
 
 process:
   model: "sm"
-  # 6 hard partons at the matrix-element level. "QED=0" keeps it PURE QCD
+  # Hard partons at the matrix-element level. "QED=0" keeps it PURE QCD
   # (drops electroweak diagrams) -> correct "QCD events" and far fewer diagrams.
-  # Edit the jet count here to dial multiplicity up or down (see header).
-  process_string: "p p > j j j j j j QED=0"
+  # >>> EDIT THE JET COUNT HERE to dial multiplicity up (5j, 6j, ...) or down.
+  process_string: "p p > j j j j QED=0"
   decay_chain: null
-  extra_partons: 0        # do NOT add matched jets on top of a 6-jet ME
+  extra_partons: 0        # fixed-order ME; do NOT stack matched jets on top
   excluded_particles: []
 
 particles: []
@@ -60,7 +56,7 @@ matching:
   enabled: false          # fixed-order: a single exclusive multiplicity, no MLM
 
 generation:
-  num_events: 100         # keep small; high-multiplicity generation is slow
+  num_events: 500         # raise for bigger samples; lower if you push the jet count up
   random_seed: 12345
   # Generation-level cuts. BOTH are required for a finite cross section:
   ptj_min: 20.0           # regulates the SOFT singularity (every parton pt>20)
@@ -81,5 +77,5 @@ output:
   save_hepmc: true
   save_hdf5: true
   compression: "gzip"
-  max_jets_per_event: 20      # plenty of room for 6 hard jets + shower
+  max_jets_per_event: 20      # plenty of room for the hard jets + shower
   max_particles_per_jet: 100
