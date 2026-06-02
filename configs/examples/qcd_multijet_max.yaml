@@ -1,65 +1,55 @@
 # ============================================================================
-# High-multiplicity QCD multijet production at LHC Run 3 (13.6 TeV)
+# Exclusive six-gluon production at LHC Run 3 (13.6 TeV)
 # ============================================================================
-# Goal: generate pure-QCD events with as many hard jets as you can afford.
-# The final-state multiplicity is set DIRECTLY in `process_string` below.
-# It is NOT limited by `extra_partons` (that field only adds MLM-matched jets
-# and is capped at 2); putting the jets in the process string is how you push
-# the matrix-element multiplicity higher.
+#   g g > g g g g g g
 #
-# DEFAULT = 4 hard jets ("p p > j j j j"), which runs out of the box. Raise the
-# jet count toward the ceiling as your compute budget allows (see ladder below).
+# Maximum-multiplicity pure-QCD events: a gluon-gluon initial state producing
+# exactly SIX gluons at the matrix-element level. Restricting to pure glue
+# (gluon initial AND final state) makes this the single most tractable 2 -> 6
+# QCD process -- ONE subprocess, no quark-flavor combinatorics -- while still
+# carrying the full ~34,300-diagram, factorial cost of a 6-parton amplitude.
+#
+# "Exclusive": exactly 6 jets. No MLM matching, no extra partons -- the final
+# state is a fixed 6-parton matrix element, not an inclusive >=6 sample.
 #
 # ----------------------------------------------------------------------------
-# THE COST GROWS ~FACTORIALLY WITH THE JET COUNT
-# ----------------------------------------------------------------------------
-# Approximate pure-gluon Feynman-diagram counts (full j = g,u,d,s,... multiplies
-# this further by the number of quark-flavor subprocesses):
-#
-#     p p > j j         (2 jets)  ~      4   diagrams   trivial
-#     p p > j j j       (3 jets)  ~     25              seconds
-#     p p > j j j j     (4 jets)  ~    220              minutes      <-- DEFAULT
-#     p p > j j j j j   (5 jets)  ~  2,485              ~hour(s)
-#     p p > j j j j j j (6 jets)  ~ 34,300              hours, lots of RAM
-#     p p > 7 jets               ~560,000              HPC only
-#     p p > 8 jets               ~  10 million          effectively intractable
-#
-# To go as high as possible:
-#   * Raise the jet count one at a time and keep `num_events` small.
-#   * Use gluons only to reach higher N for a given budget (far fewer
-#     subprocesses, less realistic flavor content):
-#       process_string: "p p > g g g g g g g QED=0"
+# !! THIS IS EXPENSIVE !!  gg -> 6g has ~34,300 Feynman diagrams. Diagram
+# generation, phase-space integration, and unweighting are all slow and
+# RAM-hungry (expect hours and several GB). Start with a small `num_events`
+# (or `-n`) for a first run, then scale up. Run parton-level for literally
+# exactly-6-jet events:
+#     ./run -c configs/examples/qcd_multijet_max.yaml -n 1000 --shower off
 # ----------------------------------------------------------------------------
 
 name: "qcd_multijet_max"
-description: "High-multiplicity QCD multijet (pp -> 4j default, tunable), 13.6 TeV"
+description: "Exclusive six-gluon production (gg -> 6g), maximum multiplicity, 13.6 TeV"
 
 collider:
-  beam1_pdg: 2212
+  beam1_pdg: 2212        # proton beams; the gg initial state is taken from the gluon PDF
   beam2_pdg: 2212
   energy_beam1: 6800.0   # sqrt(s) = 13.6 TeV
   energy_beam2: 6800.0
 
 process:
   model: "sm"
-  # Hard partons at the matrix-element level. "QED=0" keeps it PURE QCD
-  # (drops electroweak diagrams) -> correct "QCD events" and far fewer diagrams.
-  # >>> EDIT THE JET COUNT HERE to dial multiplicity up (5j, 6j, ...) or down.
-  process_string: "p p > j j j j QED=0"
+  # Gluon initial state -> exactly six gluons. Pure QCD by construction
+  # (gluons carry no electroweak charge), so no coupling-order constraint is
+  # needed and there is a single partonic subprocess.
+  process_string: "g g > g g g g g g"
   decay_chain: null
-  extra_partons: 0        # fixed-order ME; do NOT stack matched jets on top
+  extra_partons: 0        # EXCLUSIVE: fixed 6-parton ME, no matched extra jets
   excluded_particles: []
 
 particles: []
 
 matching:
-  enabled: false          # fixed-order: a single exclusive multiplicity, no MLM
+  enabled: false          # exclusive: no MLM merging
 
 generation:
-  num_events: 500         # raise for bigger samples; lower if you push the jet count up
+  num_events: 1000        # keep modest; gg -> 6g is slow. Override with -n.
   random_seed: 12345
   # Generation-level cuts. BOTH are required for a finite cross section:
-  ptj_min: 20.0           # regulates the SOFT singularity (every parton pt>20)
+  ptj_min: 20.0           # regulates the SOFT singularity (every gluon pt>20)
   drjj_min: 0.4           # regulates the COLLINEAR singularity (R=0.4 separation)
   etaj_max: 5.0           # (output-level eta cut applied later in `jets`)
   use_syst: false         # avoid PDF downloads / Pythia incompatibility
@@ -67,7 +57,7 @@ generation:
 jets:
   algorithm: "antikt"
   radius: 0.4
-  pt_min: 20.0            # cluster jets down to 20 GeV to keep the full multiplicity
+  pt_min: 20.0            # matches the ME ptj cut so all six gluons become jets
   eta_max: 4.5            # wide acceptance to retain forward jets
 
 output:
@@ -77,5 +67,5 @@ output:
   save_hepmc: true
   save_hdf5: true
   compression: "gzip"
-  max_jets_per_event: 20      # plenty of room for the hard jets + shower
+  max_jets_per_event: 20      # room for the six hard jets (+ shower, if enabled)
   max_particles_per_jet: 100

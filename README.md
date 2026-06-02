@@ -102,21 +102,24 @@ practical jet multiplicity. The number of hard jets is set in `process_string`
 (e.g. `p p > j j j j j j`) — it is **not** limited by `extra_partons` (that
 field only adds MLM-matched jets, capped at 2).
 
-### Maximum matrix-element multiplicity (fixed order)
+### Maximum multiplicity — exclusive six-gluon production
 
-`p p > j j j j` — four hard jets from a single leading-order matrix element,
-plus the Pythia8 shower on top. This is the **runnable default**; raise the jet
-count in `process_string` toward the MadGraph ceiling as compute allows.
+`g g > g g g g g g` — a gluon-gluon initial state producing **exactly six
+gluons** at the matrix-element level. Pure glue (gluon initial *and* final
+state) makes this the most tractable 2→6 QCD process: one subprocess, no
+quark-flavor combinatorics. "Exclusive" = no matching, no extra partons.
 
 ```bash
-./run -c configs/examples/qcd_multijet_max.yaml -n 500 -o qcd_multijet_max.h5
+# parton-level, literally exactly six jets per event
+./run -c configs/examples/qcd_multijet_max.yaml -n 1000 --shower off -o qcd_6gluon.h5
+
+# or with the Pythia8 shower on top of the six hard gluons
+./run -c configs/examples/qcd_multijet_max.yaml -n 1000 -o qcd_6gluon.h5
 ```
 
-> ⚠️ The number of Feynman diagrams grows **factorially** with the jet count
-> (~4 → 220 → 34,000 going from 2 → 4 → 6 jets), so each extra jet costs far
-> more CPU/RAM. To push higher, edit `process_string` (e.g. `p p > j j j j j`)
-> and keep `num_events` small. Beyond ~6 jets, use gluons only
-> (`p p > g g g g g g g QED=0`) — far fewer subprocesses for a given budget.
+> ⚠️ `gg → 6g` has ~34,300 Feynman diagrams. Diagram generation, phase-space
+> integration, and unweighting are all slow and RAM-hungry (expect hours and
+> several GB). Start with a small `-n` for a first run, then scale up.
 
 Both a `ptj` cut (soft regulator) **and** a `drjj` cut (collinear regulator)
 are required for a finite cross section at fixed order; the config sets both.
@@ -133,7 +136,7 @@ consistently-described jet-multiplicity tail with no double counting.
 
 | Config | Approach | ME jets | Cost | Use when |
 |--------|----------|---------|------|----------|
-| `qcd_multijet_max` | Fixed-order ME | 4 (tunable to 6+) | High, scales with N | You need the highest hard-parton multiplicity |
+| `qcd_multijet_max` | Exclusive `gg → 6g` | exactly 6 | Very high | You need the highest hard-parton multiplicity |
 | `qcd_multijet_matched` | MLM merge + shower | 2,3,4 + shower | Moderate | You need a large, realistic inclusive sample |
 
 ## Output Format
