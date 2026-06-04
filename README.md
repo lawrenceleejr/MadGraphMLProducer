@@ -164,9 +164,25 @@ high-multiplicity background class. Handy knobs:
 |------|---------|---------|
 | `--n-jets` | Jets per event | 7 |
 | `--jet-spread` | Vary jet count by ±N (0 = fixed) | 0 |
-| `--pt-min` / `--ht-max` | Jet pT threshold / max event HT | 20 / 3000 |
-| `--ht-index` | Falling HT exponent (larger = softer) | 4.5 |
+| `--pt-min` | Jet pT threshold (GeV) | 20 |
+| `--ht-min` / `--ht-max` | Hard cut / max on event HT (GeV) | 0 / 3000 |
+| `--ht-index` | HT exponent: `>1` falling, `1` log-uniform, `0` uniform | 4.5 |
 | `--dirichlet-alpha` | pT-sharing (smaller = steeper hierarchy) | 2.0 |
+
+`--ht-min` is enforced **exactly** on the stored event HT, so every event clears
+the cut. The HT spectrum shape is `--ht-index`: the default `4.5` is realistic
+but steeply-falling, which **starves the high-HT tail**. To populate the tail —
+e.g. for a discriminator that normalizes by HT and needs statistics across the
+high-HT region — flatten the spectrum and extend the range:
+
+```bash
+# HT > 1 TeV, well-populated tail out to 5 TeV (log-uniform, ~flat per decade)
+python scripts/make_synthetic_qcd.py -o qcd7_htgt1tev.h5 -n 50000 \
+    --n-jets 7 --ht-min 1000 --ht-max 5000 --ht-index 1
+```
+
+(`--ht-index 0` is uniform in HT — even more tail-heavy. The HT cut/shape and
+the `ht_min`/`ht_max`/`ht_index` used are recorded in the file attrs.)
 
 ## Output Format
 

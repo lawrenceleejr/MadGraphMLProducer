@@ -66,20 +66,33 @@ _HADRON_PROB = np.array([0.50, 0.27, 0.09, 0.05, 0.05, 0.04])
 _HADRON_CHARGED = np.array([True, False, True, False, True, False])
 
 
+def _sample_ht(rng, ht_index, ht_lo, ht_hi):
+    """Inverse-transform sample HT from dN/dHT ~ HT^-ht_index on [ht_lo, ht_hi].
+
+    ht_index = 1   -> log-uniform (flat per decade; great tail coverage)
+    ht_index = 0   -> uniform in HT (maximally flat; most tail population)
+    ht_index ~ 4-5 -> steeply falling, realistic QCD-like
+    """
+    u = rng.random()
+    p = ht_index - 1.0
+    if abs(p) < 1e-9:                       # ht_index == 1 -> log-uniform
+        return ht_lo * (ht_hi / ht_lo) ** u
+    return (ht_lo ** (-p) + u * (ht_hi ** (-p) - ht_lo ** (-p))) ** (-1.0 / p)
+
+
 def sample_event(rng, n_jets, pt_min, eta_max, max_particles,
-                 ht_index, ht_max, dirichlet_alpha, btag_rate):
+                 ht_index, ht_max, ht_min, dirichlet_alpha, btag_rate):
     """Generate one synthetic QCD-like multijet event.
 
     Returns a dict of per-jet arrays plus event-level MET/HT.
     """
-    # --- 1) Event energy scale: steeply-falling HT spectrum -----------------
-    # Inverse-transform sample HT from dN/dHT ~ HT^-ht_index on [ht_min, ht_max].
-    # Generate a touch above pt_min so the softest jet survives balancing+smear.
+    # --- 1) Event energy scale: tunable HT spectrum -------------------------
+    # Sample a target HT; the floor is raised to ht_min so EVERY event clears
+    # the requested cut. Generate a touch above pt_min so the softest jet
+    # survives balancing+smear.
     gen_min = pt_min * 1.2
-    ht_min = n_jets * gen_min * 2.0
-    u = rng.random()
-    p = ht_index - 1.0
-    ht = (ht_min ** (-p) + u * (ht_max ** (-p) - ht_min ** (-p))) ** (-1.0 / p)
+    ht_lo = max(n_jets * gen_min * 2.0, ht_min)
+    ht = _sample_ht(rng, ht_index, ht_lo, ht_max)
 
     # --- 2) Partition HT into a pT hierarchy (floor at gen_min) -------------
     # Dirichlet shares give one/few dominant jets + a soft tail; sort descending.
@@ -101,12 +114,18 @@ def sample_event(rng, n_jets, pt_min, eta_max, max_particles,
     # --- 5) Detector-like resolution smear -> this is where MET comes from --
     smear = np.clip(rng.normal(1.0, 0.08, n_jets), 0.3, None)
     pt = pt * smear
-    px, py = pt * np.cos(phi), pt * np.sin(phi)
-    met_x, met_y = -px.sum(), -py.sum()          # MET = -(visible vector sum)
 
     # order by measured (smeared) pT, like a reconstructed jet collection
     order = np.argsort(pt)[::-1]
     pt, eta, phi = pt[order], eta[order], phi[order]
+
+    # --- 5b) Rescale so the STORED HT (sum of jet pT) == the sampled target.
+    # This undoes the small HT shift from balancing/smearing, so event_features
+    # HT follows the chosen spectrum EXACTLY and always exceeds ht_min. A common
+    # scale factor preserves the pT hierarchy, the angles, and MET/HT.
+    pt = pt * (ht / pt.sum())
+    px, py = pt * np.cos(phi), pt * np.sin(phi)
+    met_x, met_y = -px.sum(), -py.sum()          # MET = -(visible vector sum)
 
     # --- 6) Jet mass ~ 0.12 * pT --------------------------------------------
     mass = pt * np.clip(rng.normal(0.12, 0.04, n_jets), 0.02, 0.45)
@@ -181,7 +200,11 @@ def main():
     ap.add_argument("--pt-min", type=float, default=20.0, help="Min jet pT (GeV)")
     ap.add_argument("--eta-max", type=float, default=4.5, help="Max |eta| for jets")
     ap.add_argument("--ht-index", type=float, default=4.5,
-                    help="Falling HT spectrum exponent (dN/dHT ~ HT^-index)")
+                    help="HT spectrum exponent (dN/dHT ~ HT^-index); 1=log-uniform, "
+                         "0=uniform. Lower values populate the tail more.")
+    ap.add_argument("--ht-min", type=float, default=0.0,
+                    help="Hard lower cut on event HT in GeV (0 = no cut). Enforced "
+                         "exactly on the stored HT.")
     ap.add_argument("--ht-max", type=float, default=3000.0, help="Max HT (GeV)")
     ap.add_argument("--dirichlet-alpha", type=float, default=2.0,
                     help="Jet pT-sharing concentration (smaller -> steeper hierarchy)")
@@ -192,6 +215,8 @@ def main():
 
     if args.n_jets > args.max_jets:
         sys.exit(f"--n-jets ({args.n_jets}) cannot exceed --max-jets ({args.max_jets})")
+    if args.ht_min and args.ht_min >= args.ht_max:
+        sys.exit(f"--ht-min ({args.ht_min}) must be below --ht-max ({args.ht_max})")
 
     rng = np.random.default_rng(args.seed)
     N, J, P = args.events, args.max_jets, args.max_particles
@@ -259,7 +284,7 @@ def main():
                                                                 args.jet_spread + 1),
                                      1, J))
                 evt = sample_event(rng, nj, args.pt_min, args.eta_max, P,
-                                   args.ht_index, args.ht_max,
+                                   args.ht_index, args.ht_max, args.ht_min,
                                    args.dirichlet_alpha, args.btag_rate)
 
                 jmask[k, :nj] = True
@@ -326,6 +351,9 @@ def main():
         f.attrs["passwdabc_source_features"] = ["e", "pt", "eta", "phi"]
         f.attrs["passwdabc_event_vars"] = ["normweight"]
         f.attrs["synthetic"] = True
+        f.attrs["ht_min"] = args.ht_min
+        f.attrs["ht_max"] = args.ht_max
+        f.attrs["ht_index"] = args.ht_index
 
     print(f"\nDone. Wrote {N} events to {args.output}")
 
