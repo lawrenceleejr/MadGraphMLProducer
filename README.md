@@ -95,6 +95,95 @@ Gluino decays through an on-shell squark: g̃ → u ũ*, ũ* → d̄ s̄
 | Off-shell | g̃ → uds | 6 (3+3) | Virtual squark |
 | On-shell | g̃ → u ũ* → u d s | 6 (3+3) | Real 800 GeV squark |
 
+## High-Multiplicity QCD Multijets
+
+Two configurations for generating pure-QCD multijet events with the highest
+practical jet multiplicity. The number of hard jets is set in `process_string`
+(e.g. `p p > j j j j j j`) — it is **not** limited by `extra_partons` (that
+field only adds MLM-matched jets, capped at 2).
+
+### Maximum multiplicity — exclusive six-gluon production
+
+`g g > g g g g g g` — a gluon-gluon initial state producing **exactly six
+gluons** at the matrix-element level. Pure glue (gluon initial *and* final
+state) makes this the most tractable 2→6 QCD process: one subprocess, no
+quark-flavor combinatorics. "Exclusive" = no matching, no extra partons.
+
+```bash
+# parton-level, literally exactly six jets per event
+./run -c configs/examples/qcd_multijet_max.yaml -n 1000 --shower off -o qcd_6gluon.h5
+
+# or with the Pythia8 shower on top of the six hard gluons
+./run -c configs/examples/qcd_multijet_max.yaml -n 1000 -o qcd_6gluon.h5
+```
+
+> ⚠️ `gg → 6g` has ~34,300 Feynman diagrams. Diagram generation, phase-space
+> integration, and unweighting are all slow and RAM-hungry (expect hours and
+> several GB). Start with a small `-n` for a first run, then scale up.
+
+Both a `ptj` cut (soft regulator) **and** a `drjj` cut (collinear regulator)
+are required for a finite cross section at fixed order; the config sets both.
+
+### MLM-merged inclusive multijet (recommended for large samples)
+
+Merges the 2-, 3-, and 4-jet matrix elements with MLM matching and lets the
+parton shower fill in the rest. Runs at scale (10k+ events) and gives a high,
+consistently-described jet-multiplicity tail with no double counting.
+
+```bash
+./run -c configs/examples/qcd_multijet_matched.yaml -n 10000 -o qcd_multijet.h5
+```
+
+| Config | Approach | ME jets | Cost | Use when |
+|--------|----------|---------|------|----------|
+| `qcd_multijet_max` | Exclusive `gg → 6g` | exactly 6 | Very high | You need the highest hard-parton multiplicity |
+| `qcd_multijet_matched` | MLM merge + shower | 2,3,4 + shower | Moderate | You need a large, realistic inclusive sample |
+
+### Synthetic QCD-like events (no MadGraph)
+
+When the multiplicity is beyond what MadGraph can generate at LO (e.g. **7+ jets**),
+`scripts/make_synthetic_qcd.py` fabricates events that *roughly smell like* QCD
+multijets and writes them in the **exact same HDF5 schema** as the real pipeline —
+so the file is a drop-in for the same training code (SPANet `/INPUTS/Source/`,
+PasswdABC `/source/`, and the legacy `jet_features`/`particle_features` arrays).
+
+```bash
+pip install numpy h5py        # the only dependencies
+python scripts/make_synthetic_qcd.py -o qcd7.h5 -n 20000 --n-jets 7
+```
+
+It is a caricature, not a calculation, but it reproduces the features a jet model
+keys on: a steeply-falling HT spectrum partitioned into a **pT hierarchy**,
+momentum-balanced jets with small resolution **MET**, and **gluon-like
+fragmentation** for the constituents (high multiplicity scaling with pT, the QCD
+"hump-backed plateau" in ln(1/z), angular ordering within the jet, realistic
+hadron PDG-id mix). Useful to pretrain, smoke-test the training loop, or build a
+high-multiplicity background class. Handy knobs:
+
+| Flag | Meaning | Default |
+|------|---------|---------|
+| `--n-jets` | Jets per event | 7 |
+| `--jet-spread` | Vary jet count by ±N (0 = fixed) | 0 |
+| `--pt-min` | Jet pT threshold (GeV) | 20 |
+| `--ht-min` / `--ht-max` | Hard cut / max on event HT (GeV) | 0 / 3000 |
+| `--ht-index` | HT exponent: `>1` falling, `1` log-uniform, `0` uniform | 4.5 |
+| `--dirichlet-alpha` | pT-sharing (smaller = steeper hierarchy) | 2.0 |
+
+`--ht-min` is enforced **exactly** on the stored event HT, so every event clears
+the cut. The HT spectrum shape is `--ht-index`: the default `4.5` is realistic
+but steeply-falling, which **starves the high-HT tail**. To populate the tail —
+e.g. for a discriminator that normalizes by HT and needs statistics across the
+high-HT region — flatten the spectrum and extend the range:
+
+```bash
+# HT > 1 TeV, well-populated tail out to 5 TeV (log-uniform, ~flat per decade)
+python scripts/make_synthetic_qcd.py -o qcd7_htgt1tev.h5 -n 50000 \
+    --n-jets 7 --ht-min 1000 --ht-max 5000 --ht-index 1
+```
+
+(`--ht-index 0` is uniform in HT — even more tail-heavy. The HT cut/shape and
+the `ht_min`/`ht_max`/`ht_index` used are recorded in the file attrs.)
+
 ## Output Format
 
 The HDF5 output file is ready for PyTorch:

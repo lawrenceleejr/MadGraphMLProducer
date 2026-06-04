@@ -1,0 +1,56 @@
+# ============================================================================
+# Exclusive five-gluon production at LHC Run 3 (13.6 TeV)   [ g g > g g g g g ]
+# ============================================================================
+# Middle rung between 4g and the 6-gluon "max" config. Pure glue => a single
+# partonic subprocess (~2,485 diagrams) -- heavier than 4g (expect a longer
+# integration), but usually the realistic top end for direct LO event
+# generation. Produces exactly five hard jets per event.
+#
+# Exclusive: no MLM matching, no extra partons -- a fixed 5-parton ME.
+# Ladder: qcd_multijet_4g -> qcd_multijet_5g (here) -> qcd_multijet_max (6g).
+
+name: "qcd_multijet_5g"
+description: "Exclusive five-gluon production (gg -> 5g), 13.6 TeV"
+
+collider:
+  beam1_pdg: 2212        # proton beams; gg initial state taken from the gluon PDF
+  beam2_pdg: 2212
+  energy_beam1: 6800.0   # sqrt(s) = 13.6 TeV
+  energy_beam2: 6800.0
+
+process:
+  model: "sm"
+  process_string: "g g > g g g g g"   # gluon initial state -> exactly five gluons
+  decay_chain: null
+  extra_partons: 0        # EXCLUSIVE: fixed 5-parton ME, no matched extra jets
+  excluded_particles: []
+
+particles: []
+
+matching:
+  enabled: false
+
+generation:
+  num_events: 500         # keep modest; 5g integration is slower than 4g
+  random_seed: 12345
+  # BOTH cuts are required for a finite fixed-order cross section:
+  ptj_min: 20.0           # soft regulator (every gluon pt>20)
+  drjj_min: 0.4           # collinear regulator (R=0.4 separation)
+  etaj_max: 5.0
+  use_syst: false
+
+jets:
+  algorithm: "antikt"
+  radius: 0.4
+  pt_min: 20.0            # matches the ME ptj cut so all five gluons become jets
+  eta_max: 4.5
+
+output:
+  output_dir: "./output/qcd_multijet_5g"
+  filename_prefix: "qcd_multijet_5g"
+  save_lhe: true
+  save_hepmc: true
+  save_hdf5: true
+  compression: "gzip"
+  max_jets_per_event: 20
+  max_particles_per_jet: 100

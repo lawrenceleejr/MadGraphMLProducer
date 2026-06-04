@@ -1,0 +1,64 @@
+# ============================================================================
+# High-multiplicity QCD multijet, MLM-merged + parton shower (LHC Run 3)
+# ============================================================================
+# The PRACTICAL way to get a high-multiplicity QCD sample that still runs at
+# scale (10k+ events). Instead of one huge fixed-order matrix element, this
+# merges several lower-multiplicity MEs (2, 3, and 4 jets) with MLM matching
+# and lets the Pythia8 parton shower fill in all the additional, softer
+# emissions. The observed (hadron-level) jet multiplicity tail is high and the
+# spectrum is described consistently with no double counting.
+#
+# Matrix-element multiplicities here: 2j (base) + up to 2 extra = 2, 3, 4 jets.
+# Pythia8 then showers each, routinely producing events with many more jets.
+#
+# For the absolute MAXIMUM matrix-element multiplicity instead, see
+# qcd_multijet_max.yaml (slower, fixed-order, single exclusive multiplicity).
+# ============================================================================
+
+name: "qcd_multijet_matched"
+description: "MLM-merged QCD multijet (pp -> 2,3,4 jets) + Pythia8 shower, 13.6 TeV"
+
+collider:
+  beam1_pdg: 2212
+  beam2_pdg: 2212
+  energy_beam1: 6800.0   # sqrt(s) = 13.6 TeV
+  energy_beam2: 6800.0
+
+process:
+  model: "sm"
+  process_string: "p p > j j"   # base process; extra jets added by `extra_partons`
+  decay_chain: null
+  extra_partons: 2              # add p p > j j j and p p > j j j j (MLM-matched)
+  excluded_particles: []
+
+particles: []
+
+# MLM matching merges the 2/3/4-jet samples without double counting.
+matching:
+  enabled: true
+  scheme: "mlm"
+  xqcut: 20.0          # ME-level kt cut in GeV (matching scale at the ME)
+  qcut: 30.0           # Pythia matching scale in GeV (>= xqcut)
+  max_jet_flavor: 5    # treat u,d,s,c,b as light jets in the matching
+  kt_scheme: 1         # Durham kt
+
+generation:
+  num_events: 10000    # runnable at scale (unlike the fixed-order 6-jet config)
+  random_seed: 12345
+  use_syst: false      # Pythia8 + systematics reweighting are incompatible
+
+jets:
+  algorithm: "antikt"
+  radius: 0.4
+  pt_min: 20.0
+  eta_max: 4.5
+
+output:
+  output_dir: "./output/qcd_multijet_matched"
+  filename_prefix: "qcd_multijet_matched"
+  save_lhe: true
+  save_hepmc: true
+  save_hdf5: true
+  compression: "gzip"
+  max_jets_per_event: 20
+  max_particles_per_jet: 100
