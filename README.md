@@ -139,6 +139,35 @@ consistently-described jet-multiplicity tail with no double counting.
 | `qcd_multijet_max` | Exclusive `gg → 6g` | exactly 6 | Very high | You need the highest hard-parton multiplicity |
 | `qcd_multijet_matched` | MLM merge + shower | 2,3,4 + shower | Moderate | You need a large, realistic inclusive sample |
 
+### Synthetic QCD-like events (no MadGraph)
+
+When the multiplicity is beyond what MadGraph can generate at LO (e.g. **7+ jets**),
+`scripts/make_synthetic_qcd.py` fabricates events that *roughly smell like* QCD
+multijets and writes them in the **exact same HDF5 schema** as the real pipeline —
+so the file is a drop-in for the same training code (SPANet `/INPUTS/Source/`,
+PasswdABC `/source/`, and the legacy `jet_features`/`particle_features` arrays).
+
+```bash
+pip install numpy h5py        # the only dependencies
+python scripts/make_synthetic_qcd.py -o qcd7.h5 -n 20000 --n-jets 7
+```
+
+It is a caricature, not a calculation, but it reproduces the features a jet model
+keys on: a steeply-falling HT spectrum partitioned into a **pT hierarchy**,
+momentum-balanced jets with small resolution **MET**, and **gluon-like
+fragmentation** for the constituents (high multiplicity scaling with pT, the QCD
+"hump-backed plateau" in ln(1/z), angular ordering within the jet, realistic
+hadron PDG-id mix). Useful to pretrain, smoke-test the training loop, or build a
+high-multiplicity background class. Handy knobs:
+
+| Flag | Meaning | Default |
+|------|---------|---------|
+| `--n-jets` | Jets per event | 7 |
+| `--jet-spread` | Vary jet count by ±N (0 = fixed) | 0 |
+| `--pt-min` / `--ht-max` | Jet pT threshold / max event HT | 20 / 3000 |
+| `--ht-index` | Falling HT exponent (larger = softer) | 4.5 |
+| `--dirichlet-alpha` | pT-sharing (smaller = steeper hierarchy) | 2.0 |
+
 ## Output Format
 
 The HDF5 output file is ready for PyTorch:
